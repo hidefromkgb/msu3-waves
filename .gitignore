@@ -1,0 +1,16 @@
+# Binaries
+waves.exe
+waves-gtk
+*.dll
+*.so
+
+# Code::Blocks service files
+*.cscope_file_list
+*.layout
+*.depend
+.obj
+
+# Win32-specific
+Thumbs.db
+*.def
+*.a

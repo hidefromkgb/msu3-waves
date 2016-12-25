@@ -914,8 +914,8 @@ void cRedrawWindow(ENGC *engc) {
         engc->keys[KEY_F1] = 0;
         engc->line = !engc->line;
     }
-    if (engc->keys[KEY_F5]) {
-        engc->keys[KEY_F5] = 0;
+    if (engc->keys[KEY_F3]) {
+        engc->keys[KEY_F3] = 0;
         engc->halt = !engc->halt;
     }
 }

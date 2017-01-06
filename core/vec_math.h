@@ -12,54 +12,55 @@
 
 
 #pragma pack(push, 1)
-typedef float TMFV[16];
+typedef float VEC_TMFV[16];
 
-typedef struct _FMST {
-    TMFV curr;
-    struct _FMST *prev;
-} FMST;
+typedef struct _VEC_FMST {
+    VEC_TMFV curr;
+    struct _VEC_FMST *prev;
+} VEC_FMST;
 
 typedef struct {
     float x, y;
-} T2FV;
+} VEC_T2FV;
 
 typedef struct {
     float x, y, z;
-} T3FV;
+} VEC_T3FV;
 
 typedef struct {
     float x, y, z, w;
-} T4FV;
+} VEC_T4FV;
 
 typedef struct {
     int32_t x, y;
-} T2IV;
+} VEC_T2IV;
 
 typedef struct {
     int32_t x, y, z;
-} T3IV;
+} VEC_T3IV;
 
 typedef struct {
     int32_t x, y, z, w;
-} T4IV;
+} VEC_T4IV;
 #pragma pack(pop)
 
+#define inline
 
 
 __attribute__((unused))
-static inline void M4Duplicate(TMFV mdst, TMFV msrc) {
-    memcpy(mdst, msrc, sizeof(TMFV));
+static inline void VEC_M4Duplicate(VEC_TMFV mdst, VEC_TMFV msrc) {
+    memcpy(mdst, msrc, sizeof(VEC_TMFV));
 }
 
 
 
 __attribute__((unused))
-static void M4Invert(TMFV minv) {
+static void VEC_M4Invert(VEC_TMFV minv) {
+    VEC_TMFV mtmp;
     float mdet;
-    TMFV mtmp;
     int i;
 
-    M4Duplicate(mtmp, minv);
+    VEC_M4Duplicate(mtmp, minv);
 
     minv[ 0] = + mtmp[ 5]*mtmp[10]*mtmp[15] - mtmp[ 5]*mtmp[14]*mtmp[11]
                - mtmp[ 6]*mtmp[ 9]*mtmp[15] + mtmp[ 6]*mtmp[13]*mtmp[11]
@@ -123,7 +124,7 @@ static void M4Invert(TMFV minv) {
 
 
 __attribute__((unused))
-static void M4Multiply(TMFV mul1, TMFV mul2, TMFV mres) {
+static void VEC_M4Multiply(VEC_TMFV mul1, VEC_TMFV mul2, VEC_TMFV mres) {
     mres[ 0] = mul1[ 0]*mul2[ 0] + mul1[ 1]*mul2[ 4]
              + mul1[ 2]*mul2[ 8] + mul1[ 3]*mul2[12];
     mres[ 1] = mul1[ 0]*mul2[ 1] + mul1[ 1]*mul2[ 5]
@@ -164,7 +165,7 @@ static void M4Multiply(TMFV mul1, TMFV mul2, TMFV mres) {
 
 
 __attribute__((unused))
-static inline void M4Identity(TMFV load) {
+static inline void VEC_M4Identity(VEC_TMFV load) {
     load[ 1] = load[ 2] = load[ 3] =
     load[ 4] = load[ 6] = load[ 7] =
     load[ 8] = load[ 9] = load[11] =
@@ -175,7 +176,7 @@ static inline void M4Identity(TMFV load) {
 
 
 __attribute__((unused))
-static inline void M4Transpose(TMFV mtrn) {
+static inline void VEC_M4Transpose(VEC_TMFV mtrn) {
     #define fswp(a, b) (ftmp = (a), (a) = (b), (b) = ftmp)
     float ftmp;
 
@@ -191,8 +192,10 @@ static inline void M4Transpose(TMFV mtrn) {
 
 
 __attribute__((unused))
-static inline void M4Frustum(TMFV mfru, float xmin, float xmax,
-                             float ymin, float ymax, float znea, float zfar) {
+static inline void VEC_M4Frustum(VEC_TMFV mfru,
+                                 float xmin, float xmax,
+                                 float ymin, float ymax,
+                                 float znea, float zfar) {
     mfru[ 0] = 2.0 * znea / (xmax - xmin);
     mfru[ 1] = 0.0;
     mfru[ 2] = (xmax + xmin) / (xmax - xmin);
@@ -217,8 +220,10 @@ static inline void M4Frustum(TMFV mfru, float xmin, float xmax,
 
 
 __attribute__((unused))
-static inline void M4Ortho(TMFV mort, float xmin, float xmax,
-                           float ymin, float ymax, float znea, float zfar) {
+static inline void VEC_M4Ortho(VEC_TMFV mort,
+                               float xmin, float xmax,
+                               float ymin, float ymax,
+                               float znea, float zfar) {
     mort[ 0] =   2.0 / (xmax - xmin);
     mort[ 1] =   0.0;
     mort[ 2] =   0.0;
@@ -243,7 +248,7 @@ static inline void M4Ortho(TMFV mort, float xmin, float xmax,
 
 
 __attribute__((unused))
-static inline void M4Scale(TMFV mscl, float x, float y, float z) {
+static inline void VEC_M4Scale(VEC_TMFV mscl, float x, float y, float z) {
     mscl[ 0] =  x;
     mscl[ 1] = 0.0;
     mscl[ 2] = 0.0;
@@ -268,7 +273,7 @@ static inline void M4Scale(TMFV mscl, float x, float y, float z) {
 
 
 __attribute__((unused))
-static inline void M4Translate(TMFV mscl, float x, float y, float z) {
+static inline void VEC_M4Translate(VEC_TMFV mscl, float x, float y, float z) {
     mscl[ 0] = 1.0;
     mscl[ 1] = 0.0;
     mscl[ 2] = 0.0;
@@ -293,7 +298,8 @@ static inline void M4Translate(TMFV mscl, float x, float y, float z) {
 
 
 __attribute__((unused))
-static inline void M4RotAxis(TMFV mrot, float a, float x, float y, float z) {
+static inline void VEC_M4RotAxis(VEC_TMFV mrot,
+                                 float a, float x, float y, float z) {
     float t, s, c, d;
 
     if (a != 0.0 && (x != 0.0 || y != 0.0 || z != 0.0)) {
@@ -322,13 +328,13 @@ static inline void M4RotAxis(TMFV mrot, float a, float x, float y, float z) {
         mrot[15] = 1.0;
     }
     else
-        M4Identity(mrot);
+        VEC_M4Identity(mrot);
 }
 
 
 
 __attribute__((unused))
-static inline void M4RotOrts(TMFV mrot, float x, float y, float z) {
+static inline void VEC_M4RotOrts(VEC_TMFV mrot, float x, float y, float z) {
     float a = cos(x), b = sin(x),
           c = cos(y), d = sin(y),
           e = cos(z), f = sin(z),
@@ -358,13 +364,13 @@ static inline void M4RotOrts(TMFV mrot, float x, float y, float z) {
 
 
 __attribute__((unused))
-static inline void PushMatrix(FMST **crst) {
-    FMST *temp = (FMST*)malloc(sizeof(FMST));
+static inline void VEC_PushMatrix(VEC_FMST **crst) {
+    VEC_FMST *temp = (VEC_FMST*)malloc(sizeof(VEC_FMST));
 
     if (*crst)
-        M4Duplicate(temp->curr, (*crst)->curr);
+        VEC_M4Duplicate(temp->curr, (*crst)->curr);
     else
-        M4Identity(temp->curr);
+        VEC_M4Identity(temp->curr);
     temp->prev = *crst;
     *crst = temp;
 }
@@ -372,8 +378,8 @@ static inline void PushMatrix(FMST **crst) {
 
 
 __attribute__((unused))
-static inline void PopMatrix(FMST **crst) {
-    FMST *temp = (*crst)->prev;
+static inline void VEC_PopMatrix(VEC_FMST **crst) {
+    VEC_FMST *temp = (*crst)->prev;
 
     free(*crst);
     *crst = temp;
@@ -382,15 +388,15 @@ static inline void PopMatrix(FMST **crst) {
 
 
 __attribute__((unused))
-static inline void PurgeMatrixStack(FMST **crst) {
+static inline void VEC_PurgeMatrixStack(VEC_FMST **crst) {
     while (*crst)
-        PopMatrix(crst);
+        VEC_PopMatrix(crst);
 }
 
 
 
 __attribute__((unused))
-static inline void V3AddC(T3FV *vres, float cadd) {
+static inline void VEC_V3AddC(VEC_T3FV *vres, float cadd) {
     vres->x += cadd;
     vres->y += cadd;
     vres->z += cadd;
@@ -399,7 +405,7 @@ static inline void V3AddC(T3FV *vres, float cadd) {
 
 
 __attribute__((unused))
-static inline void V3AddV(T3FV *vres, T3FV *vadd) {
+static inline void VEC_V3AddV(VEC_T3FV *vres, VEC_T3FV *vadd) {
     vres->x += vadd->x;
     vres->y += vadd->y;
     vres->z += vadd->z;
@@ -408,7 +414,7 @@ static inline void V3AddV(T3FV *vres, T3FV *vadd) {
 
 
 __attribute__((unused))
-static inline void V3SubC(T3FV *vres, float csub) {
+static inline void VEC_V3SubC(VEC_T3FV *vres, float csub) {
     vres->x -= csub;
     vres->y -= csub;
     vres->z -= csub;
@@ -417,7 +423,7 @@ static inline void V3SubC(T3FV *vres, float csub) {
 
 
 __attribute__((unused))
-static inline void V3SubV(T3FV *vres, T3FV *vsub) {
+static inline void VEC_V3SubV(VEC_T3FV *vres, VEC_T3FV *vsub) {
     vres->x -= vsub->x;
     vres->y -= vsub->y;
     vres->z -= vsub->z;
@@ -426,7 +432,7 @@ static inline void V3SubV(T3FV *vres, T3FV *vsub) {
 
 
 __attribute__((unused))
-static inline void V3MulC(T3FV *vres, float cmul) {
+static inline void VEC_V3MulC(VEC_T3FV *vres, float cmul) {
     vres->x *= cmul;
     vres->y *= cmul;
     vres->z *= cmul;
@@ -435,7 +441,7 @@ static inline void V3MulC(T3FV *vres, float cmul) {
 
 
 __attribute__((unused))
-static inline void V3MulV(T3FV *vres, T3FV *vmul) {
+static inline void VEC_V3MulV(VEC_T3FV *vres, VEC_T3FV *vmul) {
     vres->x *= vmul->x;
     vres->y *= vmul->y;
     vres->z *= vmul->z;
@@ -444,7 +450,7 @@ static inline void V3MulV(T3FV *vres, T3FV *vmul) {
 
 
 __attribute__((unused))
-static inline void V3DivC(T3FV *vres, float cdiv) {
+static inline void VEC_V3DivC(VEC_T3FV *vres, float cdiv) {
     vres->x /= cdiv;
     vres->y /= cdiv;
     vres->z /= cdiv;
@@ -453,7 +459,7 @@ static inline void V3DivC(T3FV *vres, float cdiv) {
 
 
 __attribute__((unused))
-static inline void V3DivV(T3FV *vres, T3FV *vdiv) {
+static inline void VEC_V3DivV(VEC_T3FV *vres, VEC_T3FV *vdiv) {
     vres->x /= vdiv->x;
     vres->y /= vdiv->y;
     vres->z /= vdiv->z;
@@ -462,7 +468,8 @@ static inline void V3DivV(T3FV *vres, T3FV *vdiv) {
 
 
 __attribute__((unused))
-static inline void V3CrsProd(T3FV *vec1, T3FV *vec2, T3FV *vecr) {
+static inline void VEC_V3CrsProd(VEC_T3FV *vec1, VEC_T3FV *vec2,
+                                 VEC_T3FV *vecr) {
     vecr->x = vec1->y * vec2->z - vec1->z * vec2->y;
     vecr->y = vec1->z * vec2->x - vec1->x * vec2->z;
     vecr->z = vec1->x * vec2->y - vec1->y * vec2->x;
@@ -471,47 +478,48 @@ static inline void V3CrsProd(T3FV *vec1, T3FV *vec2, T3FV *vecr) {
 
 
 __attribute__((unused))
-static inline void V3LInterp(T3FV *vec1, T3FV *vec2, T3FV *vecr, float intr) {
+static inline void VEC_V3LInterp(VEC_T3FV *vec1, VEC_T3FV *vec2,
+                                 VEC_T3FV *vecr, float intr) {
     vecr->x = vec2->x;
     vecr->y = vec2->y;
     vecr->z = vec2->z;
-    V3SubV(vecr, vec1);
-    V3MulC(vecr, intr);
-    V3AddV(vecr, vec1);
+    VEC_V3SubV(vecr, vec1);
+    VEC_V3MulC(vecr, intr);
+    VEC_V3AddV(vecr, vec1);
 }
 
 
 
 __attribute__((unused))
-static inline long V3Equ(T3FV *vec1, T3FV *vec2) {
+static inline long VEC_V3Equ(VEC_T3FV *vec1, VEC_T3FV *vec2) {
     return (vec1->x == vec2->x && vec1->y == vec2->y && vec1->z == vec2->z);
 }
 
 
 
 __attribute__((unused))
-static inline float V3DotProd(T3FV *vec1, T3FV *vec2) {
+static inline float VEC_V3DotProd(VEC_T3FV *vec1, VEC_T3FV *vec2) {
     return vec1->x * vec2->x + vec1->y * vec2->y + vec1->z * vec2->z;
 }
 
 
 
 __attribute__((unused))
-static inline float V3Len(T3FV *vect) {
-    return sqrtf(V3DotProd(vect, vect));
+static inline float VEC_V3Len(VEC_T3FV *vect) {
+    return sqrt(VEC_V3DotProd(vect, vect));
 }
 
 
 
 __attribute__((unused))
-static inline void V3Normalize(T3FV *vect) {
-    V3MulC(vect, 1.0 / V3Len(vect));
+static inline void VEC_V3Normalize(VEC_T3FV *vect) {
+    VEC_V3MulC(vect, 1.0 / VEC_V3Len(vect));
 }
 
 
 
 __attribute__((unused))
-static inline void V3ToAng(T2FV *vang, T3FV *vect) {
+static inline void VEC_V3ToAng(VEC_T2FV *vang, VEC_T3FV *vect) {
     vang->x = atan2f(vect->z, vect->x);
     vang->y = asinf(vect->y / V3Len(vect));
 };
@@ -519,17 +527,17 @@ static inline void V3ToAng(T2FV *vang, T3FV *vect) {
 
 
 __attribute__((unused))
-static inline void V3FromAng(T3FV *vect, float angu, float angv) {
-    vect->x = cos(angu) * cos(angv);
-    vect->y = sin(angv);
-    vect->z = sin(angu) * cos(angv);
+static inline void VEC_V3FromAng(VEC_T3FV *vect, VEC_T2FV *vang) {
+    vect->x = cos(vang->x) * cos(vang->y);
+    vect->y = sin(vang->y);
+    vect->z = sin(vang->x) * cos(vang->y);
 };
 
 
 
 __attribute__((unused))
-static inline void M4MulVect(TMFV matx, T4FV *vect) {
-    T4FV temp = *vect;
+static inline void VEC_M4MulVect(VEC_TMFV matx, VEC_T4FV *vect) {
+    VEC_T4FV temp = *vect;
 
     vect->x = matx[ 0] * temp.x + matx[ 1] * temp.y
             + matx[ 2] * temp.z + matx[ 3] * temp.w;
@@ -544,25 +552,27 @@ static inline void M4MulVect(TMFV matx, T4FV *vect) {
 
 
 __attribute__((unused))
-static void V3UnProject(T3FV *vect, TMFV matx, int view[4]) {
-    TMFV minv;
-    T4FV vdot;
+static void VEC_V3UnProject(VEC_T3FV *vect, VEC_TMFV matx, int view[4]) {
+    VEC_TMFV minv;
+    VEC_T4FV vdot;
 
     vdot.x = (vect->x - (float)view[0]) / (float)view[2] * 2.0 - 1.0;
     vdot.y = (vect->y - (float)view[1]) / (float)view[3] * 2.0 - 1.0;
     vdot.z = 2.0 * vect->z - 1.0;
     vdot.w = 1.0;
 
-    M4Duplicate(minv, matx);
-    M4Invert(minv);
-    M4MulVect(minv, &vdot);
+    VEC_M4Duplicate(minv, matx);
+    VEC_M4Invert(minv);
+    VEC_M4MulVect(minv, &vdot);
     if(!vdot.w)
         return;
 
     vect->x = vdot.x;
     vect->y = vdot.y;
     vect->z = vdot.z;
-    V3MulC(vect, 1.0 / vdot.w);
+    VEC_V3MulC(vect, 1.0 / vdot.w);
 }
+
+#undef inline
 
 #endif /** VEC_MATH_H **/

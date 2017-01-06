@@ -5,7 +5,7 @@
 		<Option title="waves (win32)" />
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
-		<Option virtualFolders="src\;src\core\;" />
+		<Option virtualFolders="src/;src/core/;src/core/ogl_load/;" />
 		<Build>
 			<Target title="Release">
 				<Option output="../waves" prefix_auto="1" extension_auto="1" />
@@ -51,8 +51,8 @@
 		<Unit filename="../core/core.h">
 			<Option virtualFolder="src/core/" />
 		</Unit>
-		<Unit filename="../core/ogl_load.h">
-			<Option virtualFolder="src/core/" />
+		<Unit filename="../core/ogl_load/ogl_load.h">
+			<Option virtualFolder="src/core/ogl_load/" />
 		</Unit>
 		<Unit filename="../core/vec_math.h">
 			<Option virtualFolder="src/core/" />

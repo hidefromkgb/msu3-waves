@@ -5,7 +5,7 @@
 		<Option title="waves (linux)" />
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
-		<Option virtualFolders="src/;src/core/;" />
+		<Option virtualFolders="src/;src/core/;src/core/ogl_load/;" />
 		<Build>
 			<Target title="Release">
 				<Option output="../waves-gtk" prefix_auto="1" extension_auto="1" />
@@ -30,6 +30,8 @@
 			</Target>
 		</Build>
 		<Compiler>
+			<Add option="-pedantic-errors" />
+			<Add option="-pedantic" />
 			<Add option="-Wall" />
 			<Add option="`pkg-config gtk+-2.0 gtkglext-1.0 gtkglext-x11-1.0 --cflags`" />
 			<Add directory="/usr/include/gtkglext-1.0" />
@@ -47,8 +49,8 @@
 		<Unit filename="../core/core.h">
 			<Option virtualFolder="src/core/" />
 		</Unit>
-		<Unit filename="../core/ogl_load.h">
-			<Option virtualFolder="src/core/" />
+		<Unit filename="../core/ogl_load/ogl_load.h">
+			<Option virtualFolder="src/core/ogl_load/" />
 		</Unit>
 		<Unit filename="../core/vec_math.h">
 			<Option virtualFolder="src/core/" />

@@ -1,12 +1,18 @@
 #include <time.h>
 
-#include "ogl_load.h"
+#include "ogl_load/ogl_load.h"
 #include "vec_math.h"
 #include "core.h"
 
 
 
 #define randf(f) (((float)(f) * 2.0 / (float)RAND_MAX) * (float)(rand() & RAND_MAX) - (float)(f))
+#ifndef countof
+#define countof(a) (sizeof(a) / sizeof(*(a)))
+#endif
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #define DEF_FANG  0.01             /** Default angular step             **/
 #define DEF_FTRN  0.05             /** Default translational step       **/
@@ -41,7 +47,7 @@ typedef union {
 typedef struct {
     GLuint frmb, rndb;
     GLuint tfrn, tbak;
-    FVBO *vobj;
+    OGL_FVBO *vobj;
 } FRBO;
 
 
@@ -49,16 +55,16 @@ typedef struct {
 struct ENGC {
     intptr_t user;
 
-    TMFV  clrs;
-    FMST *view, *proj;
+    VEC_TMFV  clrs;
+    VEC_FMST *view, *proj;
 
     FRBO *rsur, *rwtr, *rcau;
-    FVBO *csur, *watr, *gcau, *pool, *sphr;
+    OGL_FVBO *csur, *watr, *gcau, *pool, *sphr;
 
-    T2IV angp;
-    T2FV fang, wdet, cdet, winv, cinv;
-    T3FV dclr, dcam, ldir, ftrn;
-    T4FV cdrp, csph;
+    VEC_T2IV angp;
+    VEC_T2FV fang, wdet, cdet, winv, cinv;
+    VEC_T3FV dclr, dcam, ldir, ftrn;
+    VEC_T4FV cdrp, csph;
 
     GLfloat shei, rdrp, wsur;
     GLboolean line, halt, keys[256];
@@ -549,15 +555,15 @@ void main() {\
 
 
 
-FRBO *MakeRBO(FVBO *vobj, GLuint tfrn, GLuint tbak) {
-    FTEX *ftex, *btex;
+FRBO *MakeRBO(OGL_FVBO *vobj, GLuint tfrn, GLuint tbak) {
+    OGL_FTEX *ftex, *btex;
     FRBO *retn;
 
     if (!vobj || (tfrn >= vobj->ctex) || (tbak >= vobj->ctex))
         return 0;
 
-    ftex = BindTex(vobj, tfrn, TEX_NSET);
-    btex = BindTex(vobj, tbak, TEX_NSET);
+    ftex = OGL_BindTex(vobj, tfrn, OGL_TEX_NSET);
+    btex = OGL_BindTex(vobj, tbak, OGL_TEX_NSET);
     if ((ftex->xdim != btex->xdim) ||
         (ftex->ydim != btex->ydim)) return 0;
 
@@ -578,26 +584,26 @@ FRBO *MakeRBO(FVBO *vobj, GLuint tfrn, GLuint tbak) {
 
 
 void DrawRBO(FRBO *robj, GLuint shad) {
-    FTEX ttex, *ftex, *btex;
+    OGL_FTEX ttex, *ftex, *btex;
     GLint view[4];
 
     glGetIntegerv(GL_VIEWPORT, view);
     glBindFramebufferEXT(GL_FRAMEBUFFER, robj->frmb);
     glBindRenderbufferEXT(GL_RENDERBUFFER, robj->rndb);
 
-    ttex = *(btex = BindTex(robj->vobj, robj->tbak, TEX_FRMB));
+    ttex = *(btex = OGL_BindTex(robj->vobj, robj->tbak, OGL_TEX_FRMB));
     glFramebufferRenderbufferEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                                  GL_RENDERBUFFER, robj->rndb);
     glViewport(0, 0, btex->xdim, btex->ydim);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    DrawVBO(robj->vobj, shad);
+    OGL_DrawVBO(robj->vobj, shad);
 
     glBindRenderbufferEXT(GL_RENDERBUFFER, 0);
     glBindFramebufferEXT(GL_FRAMEBUFFER, 0);
     glViewport(view[0], view[1], view[2], view[3]);
 
-    *btex = *(ftex = BindTex(robj->vobj, robj->tfrn, TEX_NSET));
+    *btex = *(ftex = OGL_BindTex(robj->vobj, robj->tfrn, OGL_TEX_NSET));
     *ftex = ttex;
 }
 
@@ -614,7 +620,7 @@ void FreeRBO(FRBO **robj) {
 
 
 
-GLvoid MakeTileTex(FTEX *retn, GLuint size, GLuint tile, GLuint tbdr) {
+GLvoid MakeTileTex(OGL_FTEX *retn, GLuint size, GLuint tile, GLuint tbdr) {
     GLint x, y, u, v;
     RGBA tclr, *bptr;
 
@@ -643,14 +649,14 @@ GLvoid MakeTileTex(FTEX *retn, GLuint size, GLuint tile, GLuint tbdr) {
                 for (u = (x - 1) * tile + tbdr; u < x * tile - tbdr; u++)
                     bptr[size * v + u].RGBA = tclr.RGBA;
         }
-    MakeTex(retn, size, size, 0, GL_TEXTURE_2D, GL_REPEAT, GL_LINEAR,
-            GL_LINEAR, GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, bptr);
+    OGL_MakeTex(retn, size, size, 0, GL_TEXTURE_2D, GL_REPEAT, GL_LINEAR,
+                GL_LINEAR, GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, bptr);
     free(bptr);
 }
 
 
 
-GLvoid MakeCloudTex(FTEX *retn, GLuint size,
+GLvoid MakeCloudTex(OGL_FTEX *retn, GLuint size,
                     GLfloat dmpf, GLfloat cden, GLfloat cshr, RGBA dclr) {
     size = pow(2.0, size);
 
@@ -706,8 +712,9 @@ GLvoid MakeCloudTex(FTEX *retn, GLuint size,
             data[x + size * y].A = 0xFF;
         }
 
-    MakeTex(retn, size, size, 0, GL_TEXTURE_CUBE_MAP, GL_REPEAT,
-            GL_LINEAR, GL_LINEAR, GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, data);
+    OGL_MakeTex(retn, size, size, 0, GL_TEXTURE_CUBE_MAP, GL_REPEAT,
+                GL_LINEAR, GL_LINEAR, GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA,
+                data);
     free(data);
     free(farr);
 }
@@ -715,14 +722,14 @@ GLvoid MakeCloudTex(FTEX *retn, GLuint size,
 
 
 void RegenerateColors(ENGC *retn) {
-    /// DISGUSTING.
-    /// [TODO] do something with it.
+    /** DISGUSTING.
+        [TODO] do something with it. **/
     while (!0) {
         retn->dclr.x = fabsf(randf(1.0));
         retn->dclr.y = fabsf(randf(1.0));
         retn->dclr.z = fabsf(randf(1.0));
         if ((retn->cdrp.w = retn->dclr.x + retn->dclr.y + retn->dclr.z) > 0) {
-            V3MulC(&retn->dclr, 1.0 / retn->cdrp.w);
+            VEC_V3MulC(&retn->dclr, 1.0 / retn->cdrp.w);
             if ((retn->dclr.x * DEF_SCLR <= 0xFF)
             &&  (retn->dclr.y * DEF_SCLR <= 0xFF)
             &&  (retn->dclr.z * DEF_SCLR <= 0xFF)
@@ -767,18 +774,21 @@ intptr_t cGetUserData(ENGC *engc) {
 
 
 void cUpdateState(ENGC *engc) {
-    T3FV vadd;
+    VEC_T3FV vadd;
+    VEC_T2FV fang;
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     if (engc->keys[KEY_W] ^ engc->keys[KEY_S]) {
-        V3FromAng(&vadd, engc->fang.x + 0.5 * M_PI, engc->fang.y);
-        V3MulC(&vadd, (engc->keys[KEY_W])? DEF_FTRN : -DEF_FTRN);
-        V3AddV(&engc->ftrn, &vadd);
+        fang = (VEC_T2FV){engc->fang.x + 0.5 * M_PI, engc->fang.y};
+        VEC_V3FromAng(&vadd, &fang);
+        VEC_V3MulC(&vadd, (engc->keys[KEY_W])? DEF_FTRN : -DEF_FTRN);
+        VEC_V3AddV(&engc->ftrn, &vadd);
     }
     if (engc->keys[KEY_A] ^ engc->keys[KEY_D]) {
-        V3FromAng(&vadd, engc->fang.x, 0.0);
-        V3MulC(&vadd, (engc->keys[KEY_A])? DEF_FTRN : -DEF_FTRN);
-        V3AddV(&engc->ftrn, &vadd);
+        fang = (VEC_T2FV){engc->fang.x, 0.0};
+        VEC_V3FromAng(&vadd, &fang);
+        VEC_V3MulC(&vadd, (engc->keys[KEY_A])? DEF_FTRN : -DEF_FTRN);
+        VEC_V3AddV(&engc->ftrn, &vadd);
     }
     if (engc->keys[KEY_RMB]) {
         /** Add a new drop; useless to renormalize here, look below **/
@@ -822,7 +832,7 @@ void cMouseInput(ENGC *engc, long xpos, long ypos, long btns) {
     else
         engc->keys[KEY_RMB] = !!(btns & 8);
     if (btns & 10)
-        engc->angp = (T2IV){xpos, ypos};
+        engc->angp = (VEC_T2IV){xpos, ypos};
 }
 
 
@@ -837,17 +847,18 @@ void cResizeWindow(ENGC *engc, long xdim, long ydim) {
     GLfloat maty = DEF_ZNEA * tanf(0.5 * DEF_FFOV * DEG_CRAD),
             matx = maty * (GLfloat)xdim / (GLfloat)ydim;
 
-    PurgeMatrixStack(&engc->proj);
-    PushMatrix(&engc->proj);
-    M4Frustum(engc->proj->curr, -matx, matx, -maty, maty, DEF_ZNEA, DEF_ZFAR);
-    PushMatrix(&engc->proj);
+    VEC_PurgeMatrixStack(&engc->proj);
+    VEC_PushMatrix(&engc->proj);
+    VEC_M4Frustum(engc->proj->curr,
+                 -matx, matx, -maty, maty, DEF_ZNEA, DEF_ZFAR);
+    VEC_PushMatrix(&engc->proj);
 
-    PurgeMatrixStack(&engc->view);
-    PushMatrix(&engc->view);
-    PushMatrix(&engc->view);
+    VEC_PurgeMatrixStack(&engc->view);
+    VEC_PushMatrix(&engc->view);
+    VEC_PushMatrix(&engc->view);
 
-    M4Multiply(engc->proj->prev->curr,
-               engc->view->prev->curr, engc->proj->curr);
+    VEC_M4Multiply(engc->proj->prev->curr,
+                   engc->view->prev->curr, engc->proj->curr);
 
     glViewport(0, 0, xdim, ydim);
 }
@@ -855,27 +866,29 @@ void cResizeWindow(ENGC *engc, long xdim, long ydim) {
 
 
 void cRedrawWindow(ENGC *engc) {
-    TMFV mmtx, rmtx, tmtx;
-    T3FV vect;
+    VEC_TMFV mmtx, rmtx, tmtx;
+    VEC_T3FV vect;
+    VEC_T2FV fang;
     GLint vprt[4];
 
     if (!engc->proj)
         return;
 
-    V3FromAng(&engc->ldir, engc->fang.x + 0.5 * M_PI, engc->fang.y);
-    M4Translate(tmtx, engc->ftrn.x, engc->ftrn.y, engc->ftrn.z);
-    M4RotOrts(rmtx, engc->fang.y, engc->fang.x, 0.0);
-    M4Multiply(rmtx, tmtx, mmtx);
-    M4Multiply(engc->proj->curr, mmtx, engc->view->curr);
+    fang = (VEC_T2FV){engc->fang.x + 0.5 * M_PI, engc->fang.y};
+    VEC_V3FromAng(&engc->ldir, &fang);
+    VEC_M4Translate(tmtx, engc->ftrn.x, engc->ftrn.y, engc->ftrn.z);
+    VEC_M4RotOrts(rmtx, engc->fang.y, engc->fang.x, 0.0);
+    VEC_M4Multiply(rmtx, tmtx, mmtx);
+    VEC_M4Multiply(engc->proj->curr, mmtx, engc->view->curr);
 
-    T3FV xdir = {mmtx[ 0], mmtx[ 4], mmtx[ 8]},
-         ydir = {mmtx[ 1], mmtx[ 5], mmtx[ 9]},
-         zdir = {mmtx[ 2], mmtx[ 6], mmtx[10]},
-         offs = {mmtx[ 3], mmtx[ 7], mmtx[11]};
+    VEC_T3FV xdir = {mmtx[ 0], mmtx[ 4], mmtx[ 8]},
+             ydir = {mmtx[ 1], mmtx[ 5], mmtx[ 9]},
+             zdir = {mmtx[ 2], mmtx[ 6], mmtx[10]},
+             offs = {mmtx[ 3], mmtx[ 7], mmtx[11]};
 
-    engc->dcam = (T3FV){-V3DotProd(&offs, &xdir),
-                        -V3DotProd(&offs, &ydir),
-                        -V3DotProd(&offs, &zdir)};
+    engc->dcam = (VEC_T3FV){-VEC_V3DotProd(&offs, &xdir),
+                            -VEC_V3DotProd(&offs, &ydir),
+                            -VEC_V3DotProd(&offs, &zdir)};
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glPolygonMode(GL_FRONT_AND_BACK, (engc->line)? GL_LINE : GL_FILL);
@@ -886,12 +899,12 @@ void cRedrawWindow(ENGC *engc) {
         keys[KEY_LEFT] = keys[KEY_RIGHT] = 0;
     }
 //*/
-    DrawVBO(engc->pool, 0);     /** Draw the pool **/
-    DrawVBO(engc->sphr, 0);     /** Draw the sphere **/
+    OGL_DrawVBO(engc->pool, 0);     /** Draw the pool **/
+    OGL_DrawVBO(engc->sphr, 0);     /** Draw the sphere **/
     glCullFace(GL_FRONT);
-    DrawVBO(engc->watr, 0);     /** Draw the water (inner surface) **/
+    OGL_DrawVBO(engc->watr, 0);     /** Draw the water (inner surface) **/
     glCullFace(GL_BACK);
-    DrawVBO(engc->watr, 1);     /** Draw the water (outer surface) **/
+    OGL_DrawVBO(engc->watr, 1);     /** Draw the water (outer surface) **/
 
     if (engc->keys[KEY_RMB]) {
         glGetIntegerv(GL_VIEWPORT, vprt);
@@ -899,7 +912,7 @@ void cRedrawWindow(ENGC *engc) {
         vect.y = (GLfloat)vprt[3] - (GLfloat)engc->angp.y;
         glReadPixels(vect.x, vect.y, 1, 1,
                      GL_DEPTH_COMPONENT, GL_FLOAT, &vect.z);
-        V3UnProject(&vect, engc->view->curr, vprt);
+        VEC_V3UnProject(&vect, engc->view->curr, vprt);
         if ((fabsf(vect.x) < 0.5 * DEF_PDIM)
         &&  (fabsf(vect.z) < 0.5 * DEF_PDIM) && (vect.y > -engc->csph.w)) {
             engc->cdrp.x = vect.x;
@@ -927,11 +940,11 @@ void cRedrawWindow(ENGC *engc) {
 
 
 
-GLenum MakeCube(UNIF *pind, UNIF *pver, GLfloat pdim) {
+GLenum MakeCube(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim) {
     #define indc 30
     #define verc 20
     #define q (0.5 * pdim)
-    T3FV vert[verc] = {
+    VEC_T3FV vert[verc] = {
         {-q, q, q}, { q, q, q}, { q,-q, q}, {-q,-q, q},
         { q, q,-q}, {-q, q,-q}, {-q,-q,-q}, { q,-q,-q},
         {-q, q,-q}, { q, q,-q}, { q, q, q}, {-q, q, q},
@@ -951,7 +964,7 @@ GLenum MakeCube(UNIF *pind, UNIF *pver, GLfloat pdim) {
     pind->pdat = calloc(1, pind->cdat);
     memcpy(pind->pdat, indx, pind->cdat);
 
-    pver->type = UNI_T3FV;
+    pver->type = OGL_UNI_T3FV;
     pver->cdat = verc * sizeof(*vert);
     pver->pdat = calloc(1, pver->cdat);
     memcpy(pver->pdat, vert, pver->cdat);
@@ -964,18 +977,18 @@ GLenum MakeCube(UNIF *pind, UNIF *pver, GLfloat pdim) {
 
 
 
-GLenum MakePlane(UNIF *pind, UNIF *pver, GLfloat pdim, GLuint pdet) {
+GLenum MakePlane(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim, GLuint pdet) {
     GLfloat step = pdim / (GLfloat)pdet;
     GLuint x, y;
 
     GLuint *indx;
-    T3FV *vert;
+    VEC_T3FV *vert;
 
     pind->type = 0;
     pind->cdat = pdet * pdet * 6;
     pind->pdat = indx = calloc(pind->cdat, sizeof(*indx));
 
-    pver->type = UNI_T3FV;
+    pver->type = OGL_UNI_T3FV;
     pver->cdat = (pdet + 1) * (pdet + 1);
     pver->pdat = vert = calloc(pver->cdat, sizeof(*vert));
 
@@ -1000,19 +1013,19 @@ GLenum MakePlane(UNIF *pind, UNIF *pver, GLfloat pdim, GLuint pdet) {
 
 
 
-GLenum MakeSphere(UNIF *pind, UNIF *pver, GLuint hdet, GLuint rdet) {
+GLenum MakeSphere(OGL_UNIF *pind, OGL_UNIF *pver, GLuint hdet, GLuint rdet) {
     GLfloat hang, rang, hstp = 1.0 * M_PI / (GLfloat)hdet,
                         rstp = 2.0 * M_PI / (GLfloat)rdet;
     GLuint x, y;
 
     GLuint *indx;
-    T3FV *vert;
+    VEC_T3FV *vert;
 
     pind->type = 0;
     pind->cdat = hdet * rdet * 6;
     pind->pdat = indx = calloc(pind->cdat, sizeof(*indx));
 
-    pver->type = UNI_T3FV;
+    pver->type = OGL_UNI_T3FV;
     pver->cdat = (hdet + 1) * rdet;
     pver->pdat = vert = calloc(pver->cdat, sizeof(*vert));
 
@@ -1087,89 +1100,95 @@ ENGC *cMakeEngine(intptr_t user) {
     retn->winv.x = retn->winv.y = 1.0 / (retn->wdet.x = retn->wdet.y = 128.0);
     retn->cinv.x = retn->cinv.y = 1.0 / (retn->cdet.x = retn->cdet.y = 1024.0);
 
-    UNIF attr[] = {{/** indices **/  .draw = GL_STATIC_DRAW},
-                   {.name = "vert",  .draw = GL_STATIC_DRAW}};
+    OGL_UNIF attr[] =
+        {{/** indices **/  .draw = GL_STATIC_DRAW},
+         {.name = "vert",  .draw = GL_STATIC_DRAW}};
 
-    UNIF cuni[] = {{.name = "clrs",  .type = UNI_TMFI, .pdat = &retn->clrs},
-                   {.name = "winv",  .type = UNI_T2FV, .pdat = &retn->winv},
-                   {.name = "cdrp",  .type = UNI_T4FV, .pdat = &retn->cdrp},
-                   {.name = "water", .type = UNI_T1II, .pdat = (GLvoid*)0}};
+    OGL_UNIF cuni[] =
+        {{.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
+         {.name = "winv",  .type = OGL_UNI_T2FV, .pdat = &retn->winv},
+         {.name = "cdrp",  .type = OGL_UNI_T4FV, .pdat = &retn->cdrp},
+         {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0}};
 
-    retn->csur = MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
-                         countof(attr), attr, countof(cuni), cuni,
-                         tvcs, tpcs, s___);
+    retn->csur = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
+                             countof(attr), attr, countof(cuni), cuni,
+                             tvcs, tpcs, s___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
-    UNIF guni[] = {{.name = "clrs",  .type = UNI_TMFI, .pdat = &retn->clrs},
-                   {.name = "cinv",  .type = UNI_T2FV, .pdat = &retn->cinv},
-                   {.name = "caust", .type = UNI_T1II, .pdat = (GLvoid*)0}};
+    OGL_UNIF guni[] =
+        {{.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
+         {.name = "cinv",  .type = OGL_UNI_T2FV, .pdat = &retn->cinv},
+         {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0}};
 
-    retn->gcau = MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
-                         countof(attr), attr, countof(guni), guni,
-                         tvgs, tpgs, s___, t_ws);
+    retn->gcau = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
+                             countof(attr), attr, countof(guni), guni,
+                             tvgs, tpgs, s___, t_ws);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
-    UNIF wuni[] = {{.name = "mMVP",  .type = UNI_TMFV, .pdat = &retn->view},
-                   {.name = "clrs",  .type = UNI_TMFI, .pdat = &retn->clrs},
-                   {.name = "csph",  .type = UNI_T4FV, .pdat = &retn->csph},
-                   {.name = "ldir",  .type = UNI_T3FV, .pdat = &retn->ldir},
-                   {.name = "dcam",  .type = UNI_T3FV, .pdat = &retn->dcam},
-                   {.name = "cloud", .type = UNI_T1II, .pdat = (GLvoid*)0},
-                   {.name = "caust", .type = UNI_T1II, .pdat = (GLvoid*)1},
-                   {.name = "tiles", .type = UNI_T1II, .pdat = (GLvoid*)2},
-                   {.name = "water", .type = UNI_T1II, .pdat = (GLvoid*)3}};
+    OGL_UNIF wuni[] =
+        {{.name = "mMVP",  .type = OGL_UNI_TMFV, .pdat = &retn->view},
+         {.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
+         {.name = "csph",  .type = OGL_UNI_T4FV, .pdat = &retn->csph},
+         {.name = "ldir",  .type = OGL_UNI_T3FV, .pdat = &retn->ldir},
+         {.name = "dcam",  .type = OGL_UNI_T3FV, .pdat = &retn->dcam},
+         {.name = "cloud", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0},
+         {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)1},
+         {.name = "tiles", .type = OGL_UNI_T1II, .pdat = (GLvoid*)2},
+         {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)3}};
 
-    retn->watr = MakeVBO(4, MakePlane(&attr[0], &attr[1],
-                                      DEF_PDIM, retn->wsur),
-                         countof(attr), attr, countof(wuni), wuni,
-                         tvws, tpws, s___, t_ws);
+    retn->watr = OGL_MakeVBO(4, MakePlane(&attr[0], &attr[1],
+                                          DEF_PDIM, retn->wsur),
+                             countof(attr), attr, countof(wuni), wuni,
+                             tvws, tpws, s___, t_ws);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
-    UNIF puni[] = {{.name = "mMVP",  .type = UNI_TMFV, .pdat = &retn->view},
-                   {.name = "clrs",  .type = UNI_TMFI, .pdat = &retn->clrs},
-                   {.name = "ldir",  .type = UNI_T3FV, .pdat = &retn->ldir},
-                   {.name = "csph",  .type = UNI_T4FV, .pdat = &retn->csph},
-                   {.name = "tiles", .type = UNI_T1II, .pdat = (GLvoid*)0},
-                   {.name = "caust", .type = UNI_T1II, .pdat = (GLvoid*)1},
-                   {.name = "water", .type = UNI_T1II, .pdat = (GLvoid*)2}};
+    OGL_UNIF puni[] =
+        {{.name = "mMVP",  .type = OGL_UNI_TMFV, .pdat = &retn->view},
+         {.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
+         {.name = "ldir",  .type = OGL_UNI_T3FV, .pdat = &retn->ldir},
+         {.name = "csph",  .type = OGL_UNI_T4FV, .pdat = &retn->csph},
+         {.name = "tiles", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0},
+         {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)1},
+         {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)2}};
 
-    retn->pool = MakeVBO(3, MakeCube(&attr[0], &attr[1], DEF_PDIM),
-                         countof(attr), attr, countof(puni), puni,
-                         tvps, tpps, s___);
+    retn->pool = OGL_MakeVBO(3, MakeCube(&attr[0], &attr[1], DEF_PDIM),
+                             countof(attr), attr, countof(puni), puni,
+                             tvps, tpps, s___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
-    UNIF suni[] = {{.name = "mMVP",  .type = UNI_TMFV, .pdat = &retn->view},
-                   {.name = "clrs",  .type = UNI_TMFI, .pdat = &retn->clrs},
-                   {.name = "csph",  .type = UNI_T4FV, .pdat = &retn->csph},
-                   {.name = "ldir",  .type = UNI_T3FV, .pdat = &retn->ldir},
-                   {.name = "caust", .type = UNI_T1II, .pdat = (GLvoid*)0},
-                   {.name = "water", .type = UNI_T1II, .pdat = (GLvoid*)1}};
+    OGL_UNIF suni[] =
+        {{.name = "mMVP",  .type = OGL_UNI_TMFV, .pdat = &retn->view},
+         {.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
+         {.name = "csph",  .type = OGL_UNI_T4FV, .pdat = &retn->csph},
+         {.name = "ldir",  .type = OGL_UNI_T3FV, .pdat = &retn->ldir},
+         {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0},
+         {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)1}};
 
-    retn->sphr = MakeVBO(2, MakeSphere(&attr[0], &attr[1], 16, 32),
-                         countof(attr), attr, countof(suni), suni,
-                         tvss, tpss, s___);
+    retn->sphr = OGL_MakeVBO(2, MakeSphere(&attr[0], &attr[1], 16, 32),
+                             countof(attr), attr, countof(suni), suni,
+                             tvss, tpss, s___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
     free(s___);
 
-    MakeTex(&retn->csur->ptex[0], retn->wdet.x, retn->wdet.y, 0,
-            GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
-            GL_FLOAT, GL_RGBA32F, GL_RGBA, 0);
-    MakeTex(&retn->csur->ptex[1], retn->wdet.x, retn->wdet.y, 0,
-            GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
-            GL_FLOAT, GL_RGBA32F, GL_RGBA, 0);
+    OGL_MakeTex(&retn->csur->ptex[0], retn->wdet.x, retn->wdet.y, 0,
+                GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
+                GL_FLOAT, GL_RGBA32F, GL_RGBA, 0);
+    OGL_MakeTex(&retn->csur->ptex[1], retn->wdet.x, retn->wdet.y, 0,
+                GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
+                GL_FLOAT, GL_RGBA32F, GL_RGBA, 0);
 
-    MakeTex(&retn->gcau->ptex[0], retn->cdet.x, retn->cdet.y, 0,
-            GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
-            GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, 0);
-    MakeTex(&retn->gcau->ptex[1], retn->cdet.x, retn->cdet.y, 0,
-            GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
-            GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, 0);
+    OGL_MakeTex(&retn->gcau->ptex[0], retn->cdet.x, retn->cdet.y, 0,
+                GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
+                GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, 0);
+    OGL_MakeTex(&retn->gcau->ptex[1], retn->cdet.x, retn->cdet.y, 0,
+                GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
+                GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, 0);
 
     /** water **/
     retn->watr->ptex[3].orig =
@@ -1212,14 +1231,14 @@ void cFreeEngine(ENGC **engc) {
     FreeRBO(&(*engc)->rwtr);
     FreeRBO(&(*engc)->rcau);
 
-    FreeVBO(&(*engc)->csur);
-    FreeVBO(&(*engc)->watr);
-    FreeVBO(&(*engc)->gcau);
-    FreeVBO(&(*engc)->pool);
-    FreeVBO(&(*engc)->sphr);
+    OGL_FreeVBO(&(*engc)->csur);
+    OGL_FreeVBO(&(*engc)->watr);
+    OGL_FreeVBO(&(*engc)->gcau);
+    OGL_FreeVBO(&(*engc)->pool);
+    OGL_FreeVBO(&(*engc)->sphr);
 
-    PurgeMatrixStack(&(*engc)->proj);
-    PurgeMatrixStack(&(*engc)->view);
+    VEC_PurgeMatrixStack(&(*engc)->proj);
+    VEC_PurgeMatrixStack(&(*engc)->view);
 
     free(*engc);
     *engc = 0;

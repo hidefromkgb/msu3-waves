@@ -49,8 +49,8 @@ typedef struct {
 struct ENGC {
     intptr_t user;
 
-    FMST *view, *proj;
     TMFV  clrs;
+    FMST *view, *proj;
 
     FRBO *rsur, *rwtr, *rcau;
     FVBO *csur, *watr, *gcau, *pool, *sphr;
@@ -837,14 +837,19 @@ void cResizeWindow(ENGC *engc, long xdim, long ydim) {
     GLfloat maty = DEF_ZNEA * tanf(0.5 * DEF_FFOV * DEG_CRAD),
             matx = maty * (GLfloat)xdim / (GLfloat)ydim;
 
-    glViewport(0, 0, xdim, ydim);
     PurgeMatrixStack(&engc->proj);
+    PushMatrix(&engc->proj);
     M4Frustum(engc->proj->curr, -matx, matx, -maty, maty, DEF_ZNEA, DEF_ZFAR);
     PushMatrix(&engc->proj);
+
     PurgeMatrixStack(&engc->view);
     PushMatrix(&engc->view);
+    PushMatrix(&engc->view);
+
     M4Multiply(engc->proj->prev->curr,
                engc->view->prev->curr, engc->proj->curr);
+
+    glViewport(0, 0, xdim, ydim);
 }
 
 
@@ -1116,7 +1121,8 @@ ENGC *cMakeEngine(intptr_t user) {
                    {.name = "tiles", .type = UNI_T1II, .pdat = (GLvoid*)2},
                    {.name = "water", .type = UNI_T1II, .pdat = (GLvoid*)3}};
 
-    retn->watr = MakeVBO(4, MakePlane(&attr[0], &attr[1], DEF_PDIM, retn->wsur),
+    retn->watr = MakeVBO(4, MakePlane(&attr[0], &attr[1],
+                                      DEF_PDIM, retn->wsur),
                          countof(attr), attr, countof(wuni), wuni,
                          tvws, tpws, s___, t_ws);
     free(attr[0].pdat);
@@ -1202,7 +1208,18 @@ ENGC *cMakeEngine(intptr_t user) {
 
 
 void cFreeEngine(ENGC **engc) {
+    FreeRBO(&(*engc)->rsur);
+    FreeRBO(&(*engc)->rwtr);
+    FreeRBO(&(*engc)->rcau);
 
+    FreeVBO(&(*engc)->csur);
+    FreeVBO(&(*engc)->watr);
+    FreeVBO(&(*engc)->gcau);
+    FreeVBO(&(*engc)->pool);
+    FreeVBO(&(*engc)->sphr);
+
+    PurgeMatrixStack(&(*engc)->proj);
+    PurgeMatrixStack(&(*engc)->view);
 
     free(*engc);
     *engc = 0;

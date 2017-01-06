@@ -321,7 +321,7 @@ static inline void M4RotOrts(TMFV mrot, float x, float y, float z) {
     float a = cos(x), b = sin(x),
           c = cos(y), d = sin(y),
           e = cos(z), f = sin(z),
-          g = a * d,   h = b * d;
+          g = a * d,  h = b * d;
 
     mrot[ 0] =   c * e;
     mrot[ 1] = - c * f;
@@ -371,7 +371,6 @@ static inline void PopMatrix(FMST **crst) {
 static inline void PurgeMatrixStack(FMST **crst) {
     while (*crst)
         PopMatrix(crst);
-    PushMatrix(crst);
 }
 
 

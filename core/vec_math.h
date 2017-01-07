@@ -44,7 +44,6 @@ typedef struct {
 } VEC_T4IV;
 #pragma pack(pop)
 
-#define inline
 
 
 __attribute__((unused))
@@ -303,9 +302,9 @@ static inline void VEC_M4RotAxis(VEC_TMFV mrot,
     float t, s, c, d;
 
     if (a != 0.0 && (x != 0.0 || y != 0.0 || z != 0.0)) {
-        d = 1.0 / sqrtf(x*x + y*y + z*z);
+        d = 1.0 / sqrt(x*x + y*y + z*z);
         x *= d; y *= d; z *= d;
-        s = sinf(a), c = cosf(a), t = 1.0 - c;
+        s = sin(a), c = cos(a), t = 1.0 - c;
 
         mrot[ 0] = x * x * t + c;
         mrot[ 1] = x * y * t - z * s;
@@ -520,8 +519,8 @@ static inline void VEC_V3Normalize(VEC_T3FV *vect) {
 
 __attribute__((unused))
 static inline void VEC_V3ToAng(VEC_T2FV *vang, VEC_T3FV *vect) {
-    vang->x = atan2f(vect->z, vect->x);
-    vang->y = asinf(vect->y / V3Len(vect));
+    vang->x = atan2(vect->z, vect->x);
+    vang->y = asin(vect->y / VEC_V3Len(vect));
 };
 
 
@@ -564,7 +563,7 @@ static void VEC_V3UnProject(VEC_T3FV *vect, VEC_TMFV matx, int view[4]) {
     VEC_M4Duplicate(minv, matx);
     VEC_M4Invert(minv);
     VEC_M4MulVect(minv, &vdot);
-    if(!vdot.w)
+    if (!vdot.w)
         return;
 
     vect->x = vdot.x;
@@ -572,7 +571,5 @@ static void VEC_V3UnProject(VEC_T3FV *vect, VEC_TMFV matx, int view[4]) {
     vect->z = vdot.z;
     VEC_V3MulC(vect, 1.0 / vdot.w);
 }
-
-#undef inline
 
 #endif /** VEC_MATH_H **/

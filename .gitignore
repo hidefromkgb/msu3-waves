@@ -1,7 +1,10 @@
 # Binaries
 waves.exe
 waves-gtk
+waves.app/Contents/MacOS/*
+!waves.app/Contents/MacOS/*.md
 *.dll
+*.dylib
 *.so
 
 # Code::Blocks service files
@@ -14,3 +17,7 @@ waves-gtk
 Thumbs.db
 *.def
 *.a
+
+# MacOS-specific
+.DS_Store
+__MACOSX

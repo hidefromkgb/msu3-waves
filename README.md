@@ -4,7 +4,7 @@ msu3-waves
 Fourth task for the CG course, GPU-driven water simulation.<br/>
 The vast majority of ideas have been borrowed from http://madebyevan.com/<br/>
 In fact, this is just a rough port of his «WebGL Water» into C.<br/>
-Compatible with Linux, Win32 and WINE.<br/>
+Compatible with Linux, Mac, Windows and WINE.<br/>
 
 (original description in Russian:)
 
@@ -32,8 +32,9 @@ Compatible with Linux, Win32 and WINE.<br/>
 Аппаратура:            Core2Duo T5500 1.66 ГГц, 2048 МБ, Radeon X1700 Mobility<br/>
 
 Комментарии:<br/>
-Использовались plain C, библиотеки Win32 API (для Windows-версии) и библиотеки
-GTK2 и GTKGLext (для Linux-версии). Необходим OpenGL v2.0 или выше.
+Использовались plain C, библиотеки Win32 API (для Windows-версии), библиотеки
+GTK2 и GTKGLext (для Linux-версии), библиотеки Cocoa и CoreFoundation (для
+Mac-версии). Необходим OpenGL v2.0 или выше.
 Вращать камеру можно, зажав левую кнопку мыши, а "бегать" - нажимая W/A/S/D.
 Вся геометрия и текстуры генерируются процедурно.
 

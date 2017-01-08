@@ -722,9 +722,9 @@ void RegenerateColors(ENGC *retn) {
     /** DISGUSTING.
         [TODO] do something with it. **/
     while (!0) {
-        retn->dclr.x = fabsf(randf(1.0));
-        retn->dclr.y = fabsf(randf(1.0));
-        retn->dclr.z = fabsf(randf(1.0));
+        retn->dclr.x = fabs(randf(1.0));
+        retn->dclr.y = fabs(randf(1.0));
+        retn->dclr.z = fabs(randf(1.0));
         if ((retn->cdrp.w = retn->dclr.x + retn->dclr.y + retn->dclr.z) > 0) {
             VEC_V3MulC(&retn->dclr, 1.0 / retn->cdrp.w);
             if ((retn->dclr.x * DEF_SCLR <= 0xFF)

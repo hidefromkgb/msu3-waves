@@ -5,7 +5,7 @@
 		<Option title="waves (macos)" />
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
-		<Option virtualFolders="src/;src/core/;src/core/ogl_load/;" />
+		<Option virtualFolders="src/;src/mac_load/;src/core/;src/core/ogl_load/;" />
 		<Build>
 			<Target title="Release">
 				<Option output="../waves.app/Contents/MacOS/waves" prefix_auto="1" extension_auto="1" />
@@ -15,9 +15,6 @@
 				<Compiler>
 					<Add option="-O2" />
 				</Compiler>
-				<Linker>
-					<Add option="-s" />
-				</Linker>
 			</Target>
 			<Target title="Debug">
 				<Option output="../waves.app/Contents/MacOS/waves" prefix_auto="1" extension_auto="1" />
@@ -52,6 +49,9 @@
 		</Unit>
 		<Unit filename="../core/vec_math.h">
 			<Option virtualFolder="src/core/" />
+		</Unit>
+		<Unit filename="mac_load/mac_load.h">
+			<Option virtualFolder="src/mac_load/" />
 		</Unit>
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />

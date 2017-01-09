@@ -33,14 +33,14 @@ void OnSize(void *this, SEL name) {
     ENGC *engc;
 
     rect = frame(this);
-    MAC_GET_IVAR(this, VAR_ENGC, &engc);
+    MAC_GetIvar(this, VAR_ENGC, &engc);
     cResizeWindow(engc, rect.size.width, rect.size.height);
 }
 
 void OnDraw(void *this, SEL name, CGRect rect) {
     ENGC *engc;
 
-    MAC_GET_IVAR(this, VAR_ENGC, &engc);
+    MAC_GetIvar(this, VAR_ENGC, &engc);
     cRedrawWindow(engc);
     flushBuffer(openGLContext(this));
 }
@@ -52,7 +52,7 @@ void OnKbd(void *this, SEL name, NSEvent *ekbd) {
 
     if (!CFStringGetLength(temp = charactersIgnoringModifiers(ekbd)))
         return;
-    MAC_GET_IVAR(this, VAR_ENGC, &engc);
+    MAC_GetIvar(this, VAR_ENGC, &engc);
     down = (type(ekbd) == NSKeyDown)? 1 : 0;
     switch (CFStringGetCharacterAtIndex(temp, 0)) {
         case NSLeftArrowFunctionKey:
@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
     makeCurrentContext(openGLContext(data.view));
     release(pfmt);
 
-    MAC_SET_IVAR(data.view, VAR_ENGC, data.engc = cMakeEngine(0));
+    MAC_SetIvar(data.view, VAR_ENGC, data.engc = cMakeEngine(0));
     data.mwnd = initWithContentRect_styleMask_backing_defer_
                     (alloc(NSWindow()), dims, NSTitledWindowMask
                                             | NSClosableWindowMask

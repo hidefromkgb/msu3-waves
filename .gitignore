@@ -1,11 +1,10 @@
 # Binaries
 waves.exe
 waves-gtk
-waves.app/Contents/MacOS/*
-!waves.app/Contents/MacOS/*.md
+waves.app
 *.dll
-*.dylib
 *.so
+*.dylib
 
 # Code::Blocks service files
 *.cscope_file_list

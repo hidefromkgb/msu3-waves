@@ -3,40 +3,24 @@
 	<FileVersion major="1" minor="6" />
 	<Project>
 		<Option title="waves (macos)" />
-		<Option pch_mode="2" />
+		<Option makefile_is_custom="1" />
+		<Option execution_dir="." />
 		<Option compiler="gcc" />
 		<Option virtualFolders="src/;src/mac_load/;src/core/;src/core/ogl_load/;" />
 		<Build>
 			<Target title="Release">
 				<Option output="../waves.app/Contents/MacOS/waves" prefix_auto="1" extension_auto="1" />
-				<Option object_output=".obj/" />
+				<Option working_dir=".." />
 				<Option type="0" />
 				<Option compiler="gcc" />
-				<Compiler>
-					<Add option="-O2" />
-				</Compiler>
 			</Target>
 			<Target title="Debug">
 				<Option output="../waves.app/Contents/MacOS/waves" prefix_auto="1" extension_auto="1" />
-				<Option object_output=".obj/" />
+				<Option working_dir=".." />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Compiler>
-					<Add option="-g" />
-				</Compiler>
 			</Target>
 		</Build>
-		<Compiler>
-			<Add option="-Wall" />
-			<Add option="-mstackrealign" />
-			<Add option="-fno-stack-protector" />
-			<Add option="-fvisibility=hidden" />
-		</Compiler>
-		<Linker>
-			<Add option="-framework OpenGL" />
-			<Add option="-framework AppKit" />
-			<Add option="-fvisibility=hidden" />
-		</Linker>
 		<Unit filename="../core/core.c">
 			<Option compilerVar="CC" />
 			<Option virtualFolder="src/core/" />
@@ -55,6 +39,9 @@
 		</Unit>
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
+			<Option virtualFolder="src/" />
+		</Unit>
+		<Unit filename="rsrc/Info.plist">
 			<Option virtualFolder="src/" />
 		</Unit>
 		<Extensions>

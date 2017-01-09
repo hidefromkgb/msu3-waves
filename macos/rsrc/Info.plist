@@ -4,8 +4,12 @@
 <string>6.0</string>
 <key>CFBundlePackageType</key>
 <string>APPL</string>
+<key>LSMinimumSystemVersion</key>
+<string>10.6.0</string>
+<key>NSPrincipalClass</key>
+<string>NSApplication</string>
 <key>CFBundleExecutable</key>
-<string>waves</string>
+<string>main</string>
 <key>CFBundleIdentifier</key>
 <string>hidefromkgb.MSU3-Waves</string>
 <key>CFBundleName</key>
@@ -16,10 +20,6 @@
 <string>1.0.0</string>
 <key>LSApplicationCategoryType</key>
 <string>public.app-category.entertainment</string>
-<key>LSMinimumSystemVersion</key>
-<string>10.6.0</string>
 <key>LSUIElement</key>
 <string>1</string>
-<key>NSPrincipalClass</key>
-<string>NSApplication</string>
 </dict></plist>

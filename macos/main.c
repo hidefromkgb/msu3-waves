@@ -130,6 +130,7 @@ void OnUpdate(CFRunLoopTimerRef tmrp, void *user) {
         pbtn = pressedMouseButtons(NSEvent());
         mptr.x -= wdim.origin.x + vdim.origin.x;
         mptr.y -= wdim.origin.y + vdim.origin.y;
+        mptr.y = vdim.size.height - mptr.y;
 
         attr = (((data->pbtn ^ pbtn) & 3)? 0 : 1) |
                 ((pbtn & 1)? 2 : 0) | ((pbtn & 2)? 8 : 0);
@@ -140,7 +141,7 @@ void OnUpdate(CFRunLoopTimerRef tmrp, void *user) {
         if ((~attr & 1) && (here || ((data->pbtn >> 8) & ~attr & 14)))
             data->pbtn = (data->pbtn & 0xFF) | ((attr & 14) << 8);
         if ((data->pbtn & (14 << 8)))
-            cMouseInput(data->engc, mptr.x, -mptr.y, attr);
+            cMouseInput(data->engc, mptr.x, mptr.y, attr);
     }
     cUpdateState(data->engc);
 }

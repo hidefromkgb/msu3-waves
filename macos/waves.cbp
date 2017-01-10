@@ -34,6 +34,9 @@
 		<Unit filename="../core/vec_math.h">
 			<Option virtualFolder="src/core/" />
 		</Unit>
+		<Unit filename="Makefile">
+			<Option virtualFolder="src/" />
+		</Unit>
 		<Unit filename="mac_load/mac_load.h">
 			<Option virtualFolder="src/mac_load/" />
 		</Unit>

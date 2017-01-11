@@ -38,7 +38,6 @@
 		<Linker>
 			<Add option="`pkg-config gtk+-2.0 gtkglext-1.0 gtkglext-x11-1.0 --libs`" />
 			<Add library="GL" />
-			<Add library="Xrender" />
 		</Linker>
 		<Unit filename="../core/core.c">
 			<Option compilerVar="CC" />

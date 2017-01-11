@@ -2,10 +2,12 @@
 #include <gtk/gtkgl.h>
 #include <gdk/gdkkeysyms.h>
 
-#include <gdk/x11/gdkglx.h>
-#include <X11/extensions/Xrender.h>
-
 #include "../core/core.h"
+
+typedef struct {
+    GtkWidget *gwnd;
+    ENGC *engc;
+} DATA;
 
 
 
@@ -20,20 +22,19 @@ static inline GdkGLDrawable *gtk_widget_gl_begin(GtkWidget *gwnd) {
 
 
 gboolean DrawFunc(gpointer user) {
-    GdkWindow *hwnd = gtk_widget_get_window(user);
-
-    gdk_window_invalidate_rect(hwnd, 0, FALSE);
-    gdk_window_process_updates(hwnd, FALSE);
+    gdk_window_invalidate_rect(GDK_WINDOW(user), 0, FALSE);
+    gdk_window_process_updates(GDK_WINDOW(user), FALSE);
     return TRUE;
 }
 
 
 
 gboolean UpdateFunc(gpointer user) {
+    DATA *data = (DATA*)user;
     GdkGLDrawable *pGLD;
 
-    pGLD = gtk_widget_gl_begin(GTK_WIDGET(cGetUserData((ENGC*)user)));
-    cUpdateState((ENGC*)user);
+    pGLD = gtk_widget_gl_begin(data->gwnd);
+    cUpdateState(data->engc);
     gdk_gl_drawable_gl_end(pGLD);
 }
 
@@ -69,7 +70,7 @@ gboolean OnMousePress(GtkWidget *gwnd, GdkEventButton *ebtn, gpointer user) {
 
 
 gboolean OnKeyPress(GtkWidget *gwnd, GdkEventKey *ekey, gpointer user) {
-    GLboolean down = (ekey->type == GDK_KEY_PRESS)? TRUE : FALSE;
+    long down = (ekey->type == GDK_KEY_PRESS)? TRUE : FALSE;
 
     switch (ekey->keyval) {
         case GDK_KEY_Left:
@@ -170,106 +171,67 @@ gboolean OnRedraw(GtkWidget *gwnd, GdkEventExpose *eexp, gpointer user) {
 
 
 
-GdkGLConfig *GetGDKGL(GtkWidget *gwnd) {
-    GdkScreen *scrn = gtk_window_get_screen(GTK_WINDOW(gwnd));
-    GdkGLConfig *pGGL = 0;
-
-    Display *disp = GDK_SCREEN_XDISPLAY(scrn);
-    int iter, numc,
-        attr[] = {
-            GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-            GLX_RENDER_TYPE,   GLX_RGBA_BIT,
-            GLX_DOUBLEBUFFER,  True,
-            GLX_RED_SIZE,      1,
-            GLX_GREEN_SIZE,    1,
-            GLX_BLUE_SIZE,     1,
-            GLX_ALPHA_SIZE,    1,
-            None
-        };
-
-    if (XRenderQueryExtension(disp, &iter, &iter)) {
-        GLXFBConfig *pFBC =
-            glXChooseFBConfig(disp, GDK_SCREEN_XNUMBER(scrn), attr, &numc);
-        if (pFBC) {
-            for (iter = 0; !pGGL && iter < numc; iter++) {
-                XVisualInfo *pvis = glXGetVisualFromFBConfig(disp, pFBC[iter]);
-                if (pvis) {
-                    XRenderPictFormat *pfmt =
-                    XRenderFindVisualFormat(disp, pvis->visual);
-                    if (pfmt && pfmt->direct.alphaMask > 0)
-                        pGGL =
-                        gdk_x11_gl_config_new_from_visualid(pvis->visualid);
-                    XFree(pvis);
-                }
-            }
-            XFree(pFBC);
-        }
-    }
-    if (!pGGL)
-        pGGL = gdk_gl_config_new_by_mode(GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE
-                                       | GDK_GL_MODE_ALPHA | GDK_GL_MODE_RGBA);
-    return pGGL;
-}
-
-
-
 int main(int argc, char *argv[]) {
     GdkGLDrawable *pGLD;
-    GtkWidget *gwnd;
     guint tmru, tmrd;
-    ENGC *engc = 0;
+    DATA data = {};
 
     gtk_init(0, 0);
     gtk_gl_init(0, 0);
-    gwnd = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    OnChange(gwnd, 0, 0);
+    data.gwnd = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    OnChange(data.gwnd, 0, 0);
 
-    g_signal_connect(G_OBJECT(gwnd), "expose-event",
-                     G_CALLBACK(OnRedraw), &engc);
-    g_signal_connect(G_OBJECT(gwnd), "delete-event",
-                     G_CALLBACK(OnDestroy), &engc);
-    g_signal_connect(G_OBJECT(gwnd), "screen-changed",
-                     G_CALLBACK(OnChange), &engc);
-    g_signal_connect(G_OBJECT(gwnd), "configure-event",
-                     G_CALLBACK(OnResize), &engc);
-    g_signal_connect(G_OBJECT(gwnd), "key-press-event",
-                     G_CALLBACK(OnKeyPress), &engc);
-    g_signal_connect(G_OBJECT(gwnd), "key-release-event",
-                     G_CALLBACK(OnKeyPress), &engc);
-    g_signal_connect(G_OBJECT(gwnd), "button-press-event",
-                     G_CALLBACK(OnMousePress), &engc);
-    g_signal_connect(G_OBJECT(gwnd), "button-release-event",
-                     G_CALLBACK(OnMousePress), &engc);
-    g_signal_connect(G_OBJECT(gwnd), "motion-notify-event",
-                     G_CALLBACK(OnMouseMove), &engc);
-    gtk_widget_set_events(gwnd, gtk_widget_get_events(gwnd)
-                              | GDK_KEY_PRESS_MASK    | GDK_KEY_RELEASE_MASK
-                              | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK
-                              | GDK_POINTER_MOTION_MASK);
+    g_signal_connect(G_OBJECT(data.gwnd), "expose-event",
+                     G_CALLBACK(OnRedraw), &data.engc);
+    g_signal_connect(G_OBJECT(data.gwnd), "delete-event",
+                     G_CALLBACK(OnDestroy), &data.engc);
+    g_signal_connect(G_OBJECT(data.gwnd), "screen-changed",
+                     G_CALLBACK(OnChange), &data.engc);
+    g_signal_connect(G_OBJECT(data.gwnd), "configure-event",
+                     G_CALLBACK(OnResize), &data.engc);
+    g_signal_connect(G_OBJECT(data.gwnd), "key-press-event",
+                     G_CALLBACK(OnKeyPress), &data.engc);
+    g_signal_connect(G_OBJECT(data.gwnd), "key-release-event",
+                     G_CALLBACK(OnKeyPress), &data.engc);
+    g_signal_connect(G_OBJECT(data.gwnd), "button-press-event",
+                     G_CALLBACK(OnMousePress), &data.engc);
+    g_signal_connect(G_OBJECT(data.gwnd), "button-release-event",
+                     G_CALLBACK(OnMousePress), &data.engc);
+    g_signal_connect(G_OBJECT(data.gwnd), "motion-notify-event",
+                     G_CALLBACK(OnMouseMove), &data.engc);
+    gtk_widget_set_events(data.gwnd, gtk_widget_get_events(data.gwnd)
+                                   | GDK_POINTER_MOTION_MASK
+                                   | GDK_BUTTON_RELEASE_MASK
+                                   | GDK_BUTTON_PRESS_MASK
+                                   | GDK_KEY_RELEASE_MASK
+                                   | GDK_KEY_PRESS_MASK);
+    gtk_widget_set_gl_capability(data.gwnd,
+                                 gdk_gl_config_new_by_mode(GDK_GL_MODE_DEPTH
+                                                         | GDK_GL_MODE_DOUBLE
+                                                         | GDK_GL_MODE_ALPHA
+                                                         | GDK_GL_MODE_RGBA),
+                                 0, TRUE, GDK_GL_RGBA_TYPE);
+    gtk_widget_realize(data.gwnd);
 
-    gtk_widget_set_gl_capability(gwnd, GetGDKGL(gwnd), 0,
-                                 TRUE, GDK_GL_RGBA_TYPE);
-    gtk_widget_realize(gwnd);
-
-    pGLD = gtk_widget_gl_begin(gwnd);
-    engc = cMakeEngine((intptr_t)gwnd);
+    pGLD = gtk_widget_gl_begin(data.gwnd);
+    data.engc = cMakeEngine();
     gdk_gl_drawable_gl_end(pGLD);
 
-    gtk_widget_set_app_paintable(gwnd, TRUE);
-    gtk_widget_set_size_request(gwnd, 800, 600);
-    gtk_window_set_position(GTK_WINDOW(gwnd), GTK_WIN_POS_CENTER);
-    gtk_widget_show(gwnd);
+    gtk_widget_set_app_paintable(data.gwnd, TRUE);
+    gtk_widget_set_size_request(data.gwnd, 800, 600);
+    gtk_window_set_position(GTK_WINDOW(data.gwnd), GTK_WIN_POS_CENTER);
+    gtk_widget_show(data.gwnd);
 
-    tmru = g_timeout_add(DEF_UTMR, UpdateFunc, engc);
-    tmrd = g_idle_add(DrawFunc, gwnd);
+    tmru = g_timeout_add(DEF_UTMR, UpdateFunc, &data);
+    tmrd = g_idle_add(DrawFunc, gtk_widget_get_window(data.gwnd));
 
     gtk_main();
 
-    pGLD = gtk_widget_gl_begin(gwnd);
-    cFreeEngine(&engc);
+    pGLD = gtk_widget_gl_begin(data.gwnd);
+    cFreeEngine(&data.engc);
     gdk_gl_drawable_gl_end(pGLD);
 
     g_source_remove(tmrd);
     g_source_remove(tmru);
-    gtk_widget_destroy(gwnd);
+    gtk_widget_destroy(data.gwnd);
 }

@@ -53,8 +53,6 @@ typedef struct {
 
 
 struct ENGC {
-    intptr_t user;
-
     VEC_TMFV  clrs;
     VEC_FMST *view, *proj;
 
@@ -764,12 +762,6 @@ void RegenerateColors(ENGC *retn) {
 
 
 
-intptr_t cGetUserData(ENGC *engc) {
-    return engc->user;
-}
-
-
-
 void cUpdateState(ENGC *engc) {
     VEC_T3FV vadd;
     VEC_T2FV fang;
@@ -1050,13 +1042,12 @@ GLenum MakeSphere(OGL_UNIF *pind, OGL_UNIF *pver, GLuint hdet, GLuint rdet) {
 
 
 
-ENGC *cMakeEngine(intptr_t user) {
+ENGC *cMakeEngine() {
     ENGC *retn;
 
     srand(time(0));
 
     retn = calloc(1, sizeof(*retn));
-    retn->user = user;
 
     retn->ftrn.x =  0.80 * DEF_PDIM;
     retn->ftrn.y = -0.65 * DEF_PDIM;

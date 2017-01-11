@@ -164,8 +164,7 @@ int APIENTRY WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdl, int show) {
     ppfd.iLayerType = PFD_MAIN_PLANE;
     SetPixelFormat(mwdc, ChoosePixelFormat(mwdc, &ppfd), &ppfd);
     wglMakeCurrent(mwdc, mwrc = wglCreateContext(mwdc));
-    SetWindowLongPtr(hwnd, GWLP_USERDATA,
-                    (LONG_PTR)(engc = cMakeEngine((intptr_t)mwdc)));
+    SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)(engc = cMakeEngine()));
 
     rect.right = 800;
     rect.bottom = 600;
@@ -189,7 +188,7 @@ int APIENTRY WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdl, int show) {
             oldt = time;
         }
         cRedrawWindow(engc);
-        SwapBuffers((HDC)cGetUserData(engc));
+        SwapBuffers(mwdc);
     }
     cFreeEngine(&engc);
     wglMakeCurrent(0, 0);

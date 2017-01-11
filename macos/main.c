@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
     makeCurrentContext(openGLContext(data.view));
     release(pfmt);
 
-    MAC_SetIvar(data.view, VAR_ENGC, data.engc = cMakeEngine(0));
+    MAC_SetIvar(data.view, VAR_ENGC, data.engc = cMakeEngine());
     data.mwnd = initWithContentRect_styleMask_backing_defer_
                     (alloc(NSWindow()), dims, NSTitledWindowMask
                                             | NSClosableWindowMask

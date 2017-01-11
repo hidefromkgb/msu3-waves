@@ -24,11 +24,10 @@
 
 typedef struct ENGC ENGC;
 
-intptr_t cGetUserData(ENGC *engc);
 void cUpdateState(ENGC *engc);
 void cMouseInput(ENGC *engc, long xpos, long ypos, long btns);
 void cKbdInput(ENGC *engc, uint8_t code, long down);
 void cResizeWindow(ENGC *engc, long xdim, long ydim);
 void cRedrawWindow(ENGC *engc);
 void cFreeEngine(ENGC **engc);
-ENGC *cMakeEngine(intptr_t user);
+ENGC *cMakeEngine();

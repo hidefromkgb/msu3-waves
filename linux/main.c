@@ -36,6 +36,7 @@ gboolean UpdateFunc(gpointer user) {
     pGLD = gtk_widget_gl_begin(data->gwnd);
     cUpdateState(data->engc);
     gdk_gl_drawable_gl_end(pGLD);
+    return TRUE;
 }
 
 

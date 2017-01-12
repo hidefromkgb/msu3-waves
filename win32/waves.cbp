@@ -3,47 +3,26 @@
 	<FileVersion major="1" minor="6" />
 	<Project>
 		<Option title="waves (win32)" />
-		<Option pch_mode="2" />
+		<Option makefile_is_custom="1" />
+		<Option execution_dir="." />
 		<Option compiler="gcc" />
 		<Option virtualFolders="src/;src/core/;src/core/ogl_load/;" />
 		<Build>
 			<Target title="Release">
 				<Option output="../waves" prefix_auto="1" extension_auto="1" />
 				<Option object_output=".obj/" />
+				<Option working_dir=".." />
 				<Option type="0" />
 				<Option compiler="gcc" />
-				<Compiler>
-					<Add option="-O2" />
-				</Compiler>
-				<Linker>
-					<Add option="-s" />
-				</Linker>
 			</Target>
 			<Target title="Debug">
 				<Option output="../waves" prefix_auto="1" extension_auto="1" />
 				<Option object_output=".obj/" />
+				<Option working_dir=".." />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Compiler>
-					<Add option="-g" />
-				</Compiler>
 			</Target>
 		</Build>
-		<Compiler>
-			<Add option="-Wall" />
-			<Add option="-mno-stack-arg-probe -Dstrdup=_strdup -Dvsnprintf=_vsnprintf" />
-		</Compiler>
-		<Linker>
-			<Add option="-nostdlib -e_WinMain@16" />
-			<Add library="m" />
-			<Add library="msvcrt" />
-			<Add library="gdi32" />
-			<Add library="user32" />
-			<Add library="shell32" />
-			<Add library="kernel32" />
-			<Add library="comctl32" />
-			<Add library="opengl32" />
-		</Linker>
 		<Unit filename="../core/core.c">
 			<Option compilerVar="CC" />
 			<Option virtualFolder="src/core/" />
@@ -56,6 +35,9 @@
 		</Unit>
 		<Unit filename="../core/vec_math.h">
 			<Option virtualFolder="src/core/" />
+		</Unit>
+		<Unit filename="Makefile">
+			<Option virtualFolder="src/" />
 		</Unit>
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />

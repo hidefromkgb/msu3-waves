@@ -10,9 +10,6 @@
 #ifndef countof
 #define countof(a) (sizeof(a) / sizeof(*(a)))
 #endif
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 #define DEF_FANG  0.01             /** Default angular step             **/
 #define DEF_FTRN  0.05             /** Default translational step       **/
@@ -70,8 +67,10 @@ struct ENGC {
 
 
 
+#define SRC_SHDR(n, ...) char *n[] = {__VA_ARGS__, 0}
+
 /** === a set of common functions **/
-char *t___ =
+SRC_SHDR(t___,
 "#define poolAboveWater (2.0 * dims.w /* pool coef. height */ - 1.0)\n\
 \
 uniform vec3 ldir;\
@@ -177,14 +176,13 @@ vec3 getWallColor(vec3 point) {\
     }\
 \
     return wallColor * scale;\
-}";
+}");
 
 
 
 /** Computational surface **/
 
-char *tvcs[] = {
-
+SRC_SHDR(tvcs,
 /** === main vertex shader **/
 "attribute vec3 vert;\
 \
@@ -193,12 +191,9 @@ varying vec2 coord;\
 void main() {\
     coord = vert.xy * 0.5 + 0.5;\
     gl_Position = vec4(vert.xyz, 1.0);\
-}",
+}");
 
-0};
-
-char *tpcs[] = {
-
+SRC_SHDR(tpcs,
 /** === "udpating" pixel shader **/
 "uniform sampler2D water;\
 uniform vec2 winv;\
@@ -272,16 +267,14 @@ void main() {\
 \
 void main() {\
     gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);\
-}",
-
-0};
+}");
 
 
 
 /** Water surface **/
 
+SRC_SHDR(t_ws,
 /** === above- and below-water shaders` common functions **/
-char *t_ws =
 "uniform vec3 dcam;\
 uniform samplerCube cloud;\
 \
@@ -321,10 +314,9 @@ void main() {\
     }\
 \
     vec3 incomingRay = normalize(position - dcam);\
-";
+");
 
-char *tvws[] = {
-
+SRC_SHDR(tvws,
 /** main vertex shader **/
 "uniform sampler2D water;\
 uniform mat4 mMVP;\
@@ -369,12 +361,9 @@ void main() {\
     newPos = project(vert.xzy + vec3(0.0, info.r, 0.0), ray, refractedLight);\
 \
     gl_Position = vec4(0.75 * (newPos.xz + refractedLight.xz / refractedLight.y), 0.0, 1.0);\
-}",
+}");
 
-0};
-
-char *tpws[] = {
-
+SRC_SHDR(tpws,
 /** === above-water pixel shader **/
 "   %s\
     %s\
@@ -430,16 +419,13 @@ void main() {\
     /* shadow for the rim of the pool */\
     vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -dims.z /* pool height */, -1.0), vec3(1.0, 2.0, 1.0));\
     gl_FragColor.r *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - poolAboveWater)));\
-}",
-
-0};
+}");
 
 
 
 /** Pool walls **/
 
-char *tvps[] = {
-
+SRC_SHDR(tvps,
 /** === main vertex shader **/
 "%s\
 uniform mat4 mMVP;\
@@ -451,12 +437,9 @@ void main(void) {\
     position = vert;\
     position.y = ((1.0 - position.y) * dims.w /* pool coef. height */ - 1.0) * dims.z /* pool height */;\
     gl_Position = mMVP * vec4(position, 1.0);\
-}",
+}");
 
-0};
-
-char *tpps[] = {
-
+SRC_SHDR(tpps,
 /** === main pixel shader **/
 "%s\
 varying vec3 position;\
@@ -467,16 +450,13 @@ void main(void) {\
     if (position.y < info.r) {\
         gl_FragColor.rgb *= clrs[1].rgb /* under-water color */ * 1.2;\
     }\
-}",
-
-0};
+}");
 
 
 
 /** Sphere **/
 
-char *tvss[] = {
-
+SRC_SHDR(tvss,
 /** === main vertex shader **/
 "%s\
 uniform mat4 mMVP;\
@@ -487,12 +467,9 @@ varying vec3 position;\
 void main() {\
     position = csph.xyz + vert.xyz * csph.w;\
     gl_Position = mMVP * vec4(position, 1.0);\
-}",
+}");
 
-0};
-
-char *tpss[] = {
-
+SRC_SHDR(tpss,
 /** === main pixel shader **/
 "%s\
 varying vec3 position;\
@@ -502,16 +479,13 @@ void main() {\
     vec4 info = texture2D(water, position.xz * 0.5 + 0.5);\
     if (position.y < info.r)\
         gl_FragColor.rgb *= clrs[1].rgb /* under-water color */ * 1.2;\
-}",
-
-0};
+}");
 
 
 
 /** Gauss-blur surface **/
 
-char *tvgs[] = {
-
+SRC_SHDR(tvgs,
 /** === main vertex shader **/
 "attribute vec3 vert;\
 \
@@ -520,12 +494,9 @@ varying vec2 coord;\
 void main() {\
     coord = vert.xy * 0.5 + 0.5;\
     gl_Position = vec4(vert.xyz, 1.0);\
-}",
+}");
 
-0};
-
-char *tpgs[] = {
-
+SRC_SHDR(tpgs,
 /** === "1D-blur + transposition" pixel shader **/
 "uniform sampler2D caust;\
 uniform vec2 cinv;\
@@ -544,9 +515,9 @@ void main() {\
     + 0.002218 * (texture2D(caust, vec2(coord.y - 6.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 6.0 * cinv.x, coord.x)).r);\
 \
     gl_FragColor = info;\
-}",
+}");
 
-0};
+#undef SRC_SHDR
 
 
 
@@ -644,8 +615,9 @@ GLvoid MakeTileTex(OGL_FTEX *retn, GLuint size, GLuint tile, GLuint tbdr) {
                 for (u = (x - 1) * tile + tbdr; u < x * tile - tbdr; u++)
                     bptr[size * v + u].RGBA = tclr.RGBA;
         }
-    OGL_MakeTex(retn, size, size, 0, GL_TEXTURE_2D, GL_REPEAT, GL_LINEAR,
-                GL_LINEAR, GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, bptr);
+    OGL_MakeTex(retn, size, size, 0, GL_TEXTURE_2D,
+                GL_REPEAT, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, bptr);
     free(bptr);
 }
 
@@ -798,28 +770,26 @@ void cUpdateState(ENGC *engc) {
     }
     if (!engc->halt)
         DrawRBO(engc->rsur, 0); /** Update waves (if allowed to) **/
-    DrawRBO(engc->rsur, 1); /** Renormaize waves after all changes above **/
-    DrawRBO(engc->rwtr, 2); /** Update caustics **/
-    DrawRBO(engc->rcau, 0); /** 1D-blur caustics and transpose **/
-    DrawRBO(engc->rcau, 0); /** 1D-blur caustics and transpose **/
+    DrawRBO(engc->rsur, 1);     /** Renormaize them after all changes above **/
+    DrawRBO(engc->rwtr, 2);     /** Update caustics **/
+    DrawRBO(engc->rcau, 0);     /** 1D-blur caustics and transpose **/
+    DrawRBO(engc->rcau, 0);     /** 1D-blur caustics and transpose **/
 }
 
 
 
 void cMouseInput(ENGC *engc, long xpos, long ypos, long btns) {
-    if (btns & 1) {
-        if (btns & 2) { /** 1 for moving state, 2 for LMB **/
-            engc->fang.y += DEF_FANG * (GLfloat)(ypos - engc->angp.y);
-            if (engc->fang.y < -M_PI) engc->fang.y += 2.0 * M_PI;
-            else if (engc->fang.y > M_PI) engc->fang.y -= 2.0 * M_PI;
-
-            engc->fang.x += DEF_FANG * (GLfloat)(xpos - engc->angp.x);
-            if (engc->fang.x < -M_PI) engc->fang.x += 2.0 * M_PI;
-            else if (engc->fang.x > M_PI) engc->fang.x -= 2.0 * M_PI;
-        }
-    }
-    else
+    if (~btns & 1)
         engc->keys[KEY_RMB] = !!(btns & 8);
+    else if (btns & 2) { /** 1 for moving state, 2 for LMB **/
+        engc->fang.y += DEF_FANG * (GLfloat)(ypos - engc->angp.y);
+        if (engc->fang.y < -M_PI) engc->fang.y += 2.0 * M_PI;
+        else if (engc->fang.y > M_PI) engc->fang.y -= 2.0 * M_PI;
+
+        engc->fang.x += DEF_FANG * (GLfloat)(xpos - engc->angp.x);
+        if (engc->fang.x < -M_PI) engc->fang.x += 2.0 * M_PI;
+        else if (engc->fang.x > M_PI) engc->fang.x -= 2.0 * M_PI;
+    }
     if (btns & 10)
         engc->angp = (VEC_T2IV){xpos, ypos};
 }
@@ -1082,7 +1052,7 @@ ENGC *cMakeEngine() {
 
     retn->csur = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
                              countof(attr), attr, countof(cuni), cuni,
-                             tvcs, tpcs, t___);
+                             tvcs, tpcs, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1094,7 +1064,7 @@ ENGC *cMakeEngine() {
 
     retn->gcau = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
                              countof(attr), attr, countof(guni), guni,
-                             tvgs, tpgs, t___, t_ws);
+                             tvgs, tpgs, *t___, *t_ws);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1113,7 +1083,7 @@ ENGC *cMakeEngine() {
     retn->watr = OGL_MakeVBO(4, MakePlane(&attr[0], &attr[1],
                                           DEF_PDIM, retn->wsur),
                              countof(attr), attr, countof(wuni), wuni,
-                             tvws, tpws, t___, t_ws);
+                             tvws, tpws, *t___, *t_ws);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1129,7 +1099,7 @@ ENGC *cMakeEngine() {
 
     retn->pool = OGL_MakeVBO(3, MakeCube(&attr[0], &attr[1], DEF_PDIM),
                              countof(attr), attr, countof(puni), puni,
-                             tvps, tpps, t___);
+                             tvps, tpps, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1144,7 +1114,7 @@ ENGC *cMakeEngine() {
 
     retn->sphr = OGL_MakeVBO(2, MakeSphere(&attr[0], &attr[1], 16, 32),
                              countof(attr), attr, countof(suni), suni,
-                             tvss, tpss, t___);
+                             tvss, tpss, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 

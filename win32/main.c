@@ -11,6 +11,50 @@
 
 
 HRESULT APIENTRY WindowProc(HWND hWnd, UINT uMsg, WPARAM wPrm, LPARAM lPrm) {
+    static uint8_t keys[256] = {
+        KEY_NONE      , KEY_LMB       , KEY_RMB       , KEY_NONE      ,
+        KEY_MMB       , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_BACKSPACE , KEY_TAB       , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_ENTER     , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_PAUSE     ,
+        KEY_CAPSLOCK  , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_ESC       ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_SPACE     , KEY_PAGEUP    , KEY_PAGEDOWN  , KEY_END       ,
+        KEY_HOME      , KEY_LEFT      , KEY_UP        , KEY_RIGHT     ,
+        KEY_DOWN      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_PRTSCR    , KEY_INSERT    , KEY_DELETE    , KEY_NONE      ,
+        KEY_0         , KEY_1         , KEY_2         , KEY_3         ,
+        KEY_4         , KEY_5         , KEY_6         , KEY_7         ,
+        KEY_8         , KEY_9         , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_A         , KEY_B         , KEY_C         ,
+        KEY_D         , KEY_E         , KEY_F         , KEY_G         ,
+        KEY_H         , KEY_I         , KEY_J         , KEY_K         ,
+        KEY_L         , KEY_M         , KEY_N         , KEY_O         ,
+        KEY_P         , KEY_Q         , KEY_R         , KEY_S         ,
+        KEY_T         , KEY_U         , KEY_V         , KEY_W         ,
+        KEY_X         , KEY_Y         , KEY_Z         , KEY_LSYSTEM   ,
+        KEY_RSYSTEM   , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NUM_0     , KEY_NUM_1     , KEY_NUM_2     , KEY_NUM_3     ,
+        KEY_NUM_4     , KEY_NUM_5     , KEY_NUM_6     , KEY_NUM_7     ,
+        KEY_NUM_8     , KEY_NUM_9     , KEY_NUM_MUL   , KEY_NUM_ADD   ,
+        KEY_NUM_SUB   , KEY_NUM_SUB   , KEY_NUM_DEL   , KEY_NUM_DIV   ,
+        KEY_F1        , KEY_F2        , KEY_F3        , KEY_F4        ,
+        KEY_F5        , KEY_F6        , KEY_F7        , KEY_F8        ,
+        KEY_F9        , KEY_F10       , KEY_F11       , KEY_F12       ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NUM_LOCK  , KEY_SCRLOCK   , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_LSHIFT    , KEY_RSHIFT    , KEY_LCTRL     , KEY_RCTRL     ,
+        KEY_LALT      , KEY_RALT      , /** only KEY_NONE`s here... **/
+    };
     switch (uMsg) {
         case WM_CREATE:
             SetWindowLongPtr(hWnd, GWLP_USERDATA, 0);
@@ -19,65 +63,22 @@ HRESULT APIENTRY WindowProc(HWND hWnd, UINT uMsg, WPARAM wPrm, LPARAM lPrm) {
         case WM_KEYUP:
         case WM_KEYDOWN: {
             ENGC *engc = (ENGC*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
-            BOOL down = (uMsg == WM_KEYDOWN)? TRUE : FALSE;
 
-            switch (wPrm & 0xFF) {
-                case VK_LEFT:
-                    cKbdInput(engc, KEY_LEFT, down);
+            switch (wPrm) {
+                case VK_SHIFT: /** [ MAPVK_VSC_TO_VK_EX ]-----v **/
+                    wPrm = MapVirtualKey((lPrm >> 16) & 0xFF, 3);
                     break;
 
-                case VK_RIGHT:
-                    cKbdInput(engc, KEY_RIGHT, down);
+                case VK_CONTROL:
+                    wPrm = (lPrm & 0x01000000)? VK_RCONTROL : VK_LCONTROL;
                     break;
 
-                case VK_UP:
-                    cKbdInput(engc, KEY_UP, down);
-                    break;
-
-                case VK_DOWN:
-                    cKbdInput(engc, KEY_DOWN, down);
-                    break;
-
-                case VK_F1:
-                    cKbdInput(engc, KEY_F1, down);
-                    break;
-
-                case VK_F2:
-                    cKbdInput(engc, KEY_F2, down);
-                    break;
-
-                case VK_F3:
-                    cKbdInput(engc, KEY_F3, down);
-                    break;
-
-                case VK_F4:
-                    cKbdInput(engc, KEY_F4, down);
-                    break;
-
-                case VK_F5:
-                    cKbdInput(engc, KEY_F5, down);
-                    break;
-
-                case VK_SPACE:
-                    cKbdInput(engc, KEY_SPACE, down);
-                    break;
-
-                case 'W':
-                    cKbdInput(engc, KEY_W, down);
-                    break;
-
-                case 'S':
-                    cKbdInput(engc, KEY_S, down);
-                    break;
-
-                case 'A':
-                    cKbdInput(engc, KEY_A, down);
-                    break;
-
-                case 'D':
-                    cKbdInput(engc, KEY_D, down);
+                case VK_MENU:
+                    wPrm = (lPrm & 0x01000000)? VK_RMENU : VK_LMENU;
                     break;
             }
+            cKbdInput(engc, keys[wPrm & 0xFF],
+                     (uMsg == WM_KEYDOWN)? TRUE : FALSE);
             return 0;
         }
         case WM_LBUTTONUP:

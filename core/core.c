@@ -62,7 +62,7 @@ struct ENGC {
     VEC_T4FV cdrp, csph, dims;
 
     GLfloat shei, rdrp, wsur;
-    GLboolean line, halt, keys[256];
+    GLboolean line, halt, keys[KEY_ALL_KEYS];
 };
 
 
@@ -70,452 +70,454 @@ struct ENGC {
 #define SRC_SHDR(n, ...) char *n[] = {__VA_ARGS__, 0}
 
 /** === a set of common functions **/
-SRC_SHDR(t___,
-"#define poolAboveWater (2.0 * dims.w /* pool coef. height */ - 1.0)\n\
-\
-uniform vec3 ldir;\
-uniform vec4 csph;\
-uniform vec4 dims;\
-uniform mat4 clrs;\
-uniform sampler2D tiles;\
-uniform sampler2D caust;\
-uniform sampler2D water;\
-\
-vec3 v3refract(vec3 I, vec3 N, float eta) {\
-    float k = 1.0 - eta * eta * (1.0 - dot(N, I) * dot(N, I));\
-\
-    if (k < 0.0) return vec3(0.0, 0.0, 0.0);\
-    return eta * I - (eta * dot(N, I) + sqrt(k)) * N;\
-}\
-\
-vec3 v3reflect(vec3 I, vec3 N) {\
-    return I - 2.0 * dot(N, I) * N;\
-}\
-\
-float intersectSphere(vec3 origin, vec3 ray, vec3 csph, float sphereRadius) {\
-    vec3 toSphere = origin - csph;\
-\
-    float a = dot(ray, ray);\
-    float b = 2.0 * dot(toSphere, ray);\
-    float c = dot(toSphere, toSphere) - sphereRadius * sphereRadius;\
-    float discriminant = b*b - 4.0*a*c;\
-\
-    if (discriminant > 0.0) {\
-        float t = (-b - sqrt(discriminant)) / (2.0 * a);\
-        if (t > 0.0) return t;\
-    }\
-    return 1.0e6;\
-}\
-\
-vec3 getSphereColor(vec3 point) {\
-    vec3 color = vec3(0.5);\
-\
-    /* ambient occlusion with walls */\
-    color *= 1.0 - 0.9 / pow((1.0 + csph.w - abs(point.x)) / csph.w, 3.0);\
-    color *= 1.0 - 0.9 / pow((1.0 + csph.w - abs(point.z)) / csph.w, 3.0);\
-    color *= 1.0 - 0.9 / pow((point.y + 1.0 + csph.w) / csph.w, 3.0);\
-\
-    /* caustics */\
-    vec3 sphereNormal = (point - csph.xyz) / csph.w;\
-    vec3 refractedLight = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x /* DEF_AIRF */ / dims.y /* DEF_WTRF */);\
-    float diffuse = max(0.0, dot(-refractedLight, sphereNormal)) * 0.5;\
-    vec4 info = texture2D(water, point.xz * 0.5 + 0.5);\
-\
-    if (point.y < info.r) {\
-        vec4 caustic = texture2D(caust, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);\
-        diffuse *= caustic.r * 4.0;\
-    }\
-    color += diffuse;\
-\
-    return color;\
-}\
-\
-vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {\
-    vec3 tMin = (cubeMin - origin) / ray;\
-    vec3 tMax = (cubeMax - origin) / ray;\
-    vec3 t1 = min(tMin, tMax);\
-    vec3 t2 = max(tMin, tMax);\
-    float tNear = max(max(t1.x, t1.y), t1.z);\
-    float tFar = min(min(t2.x, t2.y), t2.z);\
-    return vec2(tNear, tFar);\
-}\
-\
-vec3 getWallColor(vec3 point) {\
-    float scale = 0.5;\
-\
-    vec3 wallColor;\
-    vec3 normal;\
-    if (abs(point.x) > 0.999) {\
-        wallColor = texture2D(tiles, point.yz * 0.5 + vec2(1.0, 0.5)).rgb;\
-        normal = vec3(-point.x, 0.0, 0.0);\
-    } else if (abs(point.z) > 0.999) {\
-        wallColor = texture2D(tiles, point.yx * 0.5 + vec2(1.0, 0.5)).rgb;\
-        normal = vec3(0.0, 0.0, -point.z);\
-    } else {\
-        wallColor = texture2D(tiles, point.xz * 0.5 + 0.5).rgb;\
-        normal = vec3(0.0, 1.0, 0.0);\
-    }\
-\
-    scale /= length(point); /* pool ambient occlusion */\
-    scale *= 1.0 - 0.9 / pow(length(point - csph.xyz) / csph.w, 4.0); /* sphere ambient occlusion */\
-\
-    /* caustics */\
-    vec3 refractedLight = -v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x /* DEF_AIRF */ / dims.y /* DEF_WTRF */);\
-    float diffuse = max(0.0, dot(refractedLight, normal));\
-\
-    vec4 info = texture2D(water, point.xz * 0.5 + 0.5);\
-\
-    if (point.y < info.r) {\
-        vec4 caustic = texture2D(caust, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);\
-        scale += diffuse * caustic.r * 2.0 * caustic.g;\
-    } else {\
-        /* shadow for the rim of the pool */\
-        vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -dims.z /* pool height */, -1.0), vec3(1.0, 2.0, 1.0));\
-        diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - poolAboveWater)));\
-        scale += diffuse * 0.5;\
-    }\
-\
-    return wallColor * scale;\
-}");
+SRC_SHDR(t___,            /* v---[ pool coef. height ] */
+"#define poolAboveWater (dims.w * 2.0 - 1.0)\n"
+"uniform vec3 ldir;"
+"uniform vec4 csph;"
+"uniform vec4 dims;"
+"uniform mat4 clrs;"
+"uniform sampler2D tiles;"
+"uniform sampler2D caust;"
+"uniform sampler2D water;"
+
+"vec3 v3refract(vec3 I, vec3 N, float eta) {"
+    "float k = 1.0 - eta * eta * (1.0 - dot(N, I) * dot(N, I));"
+
+    "if (k < 0.0) return vec3(0.0, 0.0, 0.0);"
+    "return eta * I - (eta * dot(N, I) + sqrt(k)) * N;"
+"}"
+
+"vec3 v3reflect(vec3 I, vec3 N) {"
+    "return I - 2.0 * dot(N, I) * N;"
+"}"
+
+"float intersectSphere(vec3 origin, vec3 ray, vec3 csph, float sphereRadius) {"
+    "vec3 toSphere = origin - csph;"
+
+    "float a = dot(ray, ray);"
+    "float b = 2.0 * dot(toSphere, ray);"
+    "float c = dot(toSphere, toSphere) - sphereRadius * sphereRadius;"
+    "float discriminant = b*b - 4.0*a*c;"
+
+    "if (discriminant > 0.0) {"
+        "float t = (-b - sqrt(discriminant)) / (2.0 * a);"
+        "if (t > 0.0) return t;"
+    "}"
+    "return 1.0e6;"
+"}"
+
+"vec3 getSphereColor(vec3 point) {"
+    "vec3 color = vec3(0.5);"
+
+    /* ambient occlusion with walls */
+    "color *= 1.0 - 0.9 / pow((1.0 + csph.w - abs(point.x)) / csph.w, 3.0);"
+    "color *= 1.0 - 0.9 / pow((1.0 + csph.w - abs(point.z)) / csph.w, 3.0);"
+    "color *= 1.0 - 0.9 / pow((point.y + 1.0 + csph.w) / csph.w, 3.0);"
+
+    /* caustics */
+    "vec3 sphereNormal = (point - csph.xyz) / csph.w;"/* [ DEF_AIRF/DEF_WTRF ]-v */
+    "vec3 refractedLight = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x / dims.y);"
+    "float diffuse = max(0.0, dot(-refractedLight, sphereNormal)) * 0.5;"
+    "vec4 info = texture2D(water, point.xz * 0.5 + 0.5);"
+
+    "if (point.y < info.r) {"
+        "vec4 caustic = texture2D(caust, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);"
+        "diffuse *= caustic.r * 4.0;"
+    "}"
+    "color += diffuse;"
+
+    "return color;"
+"}"
+
+"vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {"
+    "vec3 tMin = (cubeMin - origin) / ray;"
+    "vec3 tMax = (cubeMax - origin) / ray;"
+    "vec3 t1 = min(tMin, tMax);"
+    "vec3 t2 = max(tMin, tMax);"
+    "float tNear = max(max(t1.x, t1.y), t1.z);"
+    "float tFar = min(min(t2.x, t2.y), t2.z);"
+    "return vec2(tNear, tFar);"
+"}"
+
+"vec3 getWallColor(vec3 point) {"
+    "float scale = 0.5;"
+
+    "vec3 wallColor;"
+    "vec3 normal;"
+    "if (abs(point.x) > 0.999) {"
+        "wallColor = texture2D(tiles, point.yz * 0.5 + vec2(1.0, 0.5)).rgb;"
+        "normal = vec3(-point.x, 0.0, 0.0);"
+    "} else if (abs(point.z) > 0.999) {"
+        "wallColor = texture2D(tiles, point.yx * 0.5 + vec2(1.0, 0.5)).rgb;"
+        "normal = vec3(0.0, 0.0, -point.z);"
+    "} else {"
+        "wallColor = texture2D(tiles, point.xz * 0.5 + 0.5).rgb;"
+        "normal = vec3(0.0, 1.0, 0.0);"
+    "}"
+
+    "scale /= length(point);" /* pool ambient occlusion */
+    "scale *= 1.0 - 0.9 / pow(length(point - csph.xyz) / csph.w, 4.0);" /* sphere ambient occlusion */
+
+    /* caustics                              [ DEF_AIRF/DEF_WTRF ]-------v */
+    "vec3 refractedLight = -v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x / dims.y );"
+    "float diffuse = max(0.0, dot(refractedLight, normal));"
+
+    "vec4 info = texture2D(water, point.xz * 0.5 + 0.5);"
+
+    "if (point.y < info.r) {"
+        "vec4 caustic = texture2D(caust, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);"
+        "scale += diffuse * caustic.r * 2.0 * caustic.g;"
+    "} else {"
+        /* shadow for the rim of the pool            [ pool height ]---v */
+        "vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
+        "diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - poolAboveWater)));"
+        "scale += diffuse * 0.5;"
+    "}"
+
+    "return wallColor * scale;"
+"}");
 
 
 
 /** Computational surface **/
 
-SRC_SHDR(tvcs,
+SRC_SHDR(t_cs,
 /** === main vertex shader **/
-"attribute vec3 vert;\
-\
-varying vec2 coord;\
-\
-void main() {\
-    coord = vert.xy * 0.5 + 0.5;\
-    gl_Position = vec4(vert.xyz, 1.0);\
-}");
+"attribute vec3 vert;"
 
-SRC_SHDR(tpcs,
+"varying vec2 coord;"
+
+"void main() {"
+    "coord = vert.xy * 0.5 + 0.5;"
+    "gl_Position = vec4(vert.xyz, 1.0);"
+"}",
+
 /** === "udpating" pixel shader **/
-"uniform sampler2D water;\
-uniform vec2 winv;\
-\
-varying vec2 coord;\
-\
-void main() {\
-    /* get vertex info */\
-    vec4 info = texture2D(water, coord);\
-\
-    /* calculate average neighbor height */\
-    vec2 dx = vec2(winv.x, 0.0);\
-    vec2 dy = vec2(0.0, winv.y);\
-    float average = (texture2D(water, coord - dx).r +\
-                     texture2D(water, coord - dy).r +\
-                     texture2D(water, coord + dx).r +\
-                     texture2D(water, coord + dy).r) * 0.25;\
-\
-    /* change the velocity to move toward the average */\
-    info.g += (average - info.r) * 2.0;\
-\
-    /* attenuate the velocity a little so waves do not last forever */\
-    info.g *= 0.995;\
-\
-    /* move the vertex along the velocity */\
-    info.r += info.g;\
-\
-    gl_FragColor = info;\
-}",
+"uniform sampler2D water;"
+"uniform vec2 winv;"
+
+"varying vec2 coord;"
+
+"void main() {"
+    /* get vertex info */
+    "vec4 info = texture2D(water, coord);"
+
+    /* calculate average neighbor height */
+    "vec2 dx = vec2(winv.x, 0.0);"
+    "vec2 dy = vec2(0.0, winv.y);"
+    "float average = (texture2D(water, coord - dx).r +"
+                     "texture2D(water, coord - dy).r +"
+                     "texture2D(water, coord + dx).r +"
+                     "texture2D(water, coord + dy).r) * 0.25;"
+
+    /* change the velocity to move toward the average */
+    "info.g += (average - info.r) * 2.0;"
+
+    /* attenuate the velocity a little so waves do not last forever */
+    "info.g *= 0.995;"
+
+    /* move the vertex along the velocity */
+    "info.r += info.g;"
+
+    "gl_FragColor = info;"
+"}",
+
+/** === same vertex shader **/
+(char*)-1,
 
 /** === "renormalling" pixel shader **/
-"uniform sampler2D water;\
-uniform vec2 winv;\
-\
-varying vec2 coord;\
-\
-void main() {\
-    /* get vertex info */\
-    vec4 info = texture2D(water, coord);\
-\
-    /* update the normal */\
-    vec3 dx = vec3(winv.x, texture2D(water, vec2(coord.x + winv.x, coord.y)).r - info.r, 0.0);\
-    vec3 dy = vec3(0.0, texture2D(water, vec2(coord.x, coord.y + winv.y)).r - info.r, winv.y);\
-    info.ba = normalize(cross(dy, dx)).xz;\
-\
-    gl_FragColor = info;\
-}",
+"uniform sampler2D water;"
+"uniform vec2 winv;"
+
+"varying vec2 coord;"
+
+"void main() {"
+    /* get vertex info */
+    "vec4 info = texture2D(water, coord);"
+
+    /* update the normal */
+    "vec3 dx = vec3(winv.x, texture2D(water, vec2(coord.x + winv.x, coord.y)).r - info.r, 0.0);"
+    "vec3 dy = vec3(0.0, texture2D(water, vec2(coord.x, coord.y + winv.y)).r - info.r, winv.y);"
+    "info.ba = normalize(cross(dy, dx)).xz;"
+
+    "gl_FragColor = info;"
+"}",
+
+/** === same vertex shader **/
+(char*)-1,
 
 /** === "drop throwing" pixel shader **/
-"const float PI = 3.141592653589793;\
-\
-uniform sampler2D water;\
-uniform vec4 cdrp;\
-\
-varying vec2 coord;\
-\
-void main() {\
-    /* get vertex info */\
-    vec4 info = texture2D(water, coord);\
-\
-    /* add the drop to the height */\
-    float drop = max(0.0, 1.0 - length(cdrp.xy * 0.5 + 0.5 - coord) / cdrp.w);\
-    drop = 0.5 - cos(drop * PI) * 0.5;\
-    info.r += drop * cdrp.z;\
-\
-    gl_FragColor = info;\
-}",
+"const float PI = 3.141592653589793;"
+
+"uniform sampler2D water;"
+"uniform vec4 cdrp;"
+
+"varying vec2 coord;"
+
+"void main() {"
+    /* get vertex info */
+    "vec4 info = texture2D(water, coord);"
+
+    /* add the drop to the height */
+    "float drop = max(0.0, 1.0 - length(cdrp.xy * 0.5 + 0.5 - coord) / cdrp.w);"
+    "drop = 0.5 - cos(drop * PI) * 0.5;"
+    "info.r += drop * cdrp.z;"
+
+    "gl_FragColor = info;"
+"}",
+
+/** === same vertex shader **/
+(char*)-1,
 
 /** === "zeroing" pixel shader **/
-"varying vec2 coord;\
-\
-void main() {\
-    gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);\
-}");
+"varying vec2 coord;"
+
+"void main() {"
+    "gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);"
+"}");
 
 
 
 /** Water surface **/
 
-SRC_SHDR(t_ws,
+SRC_SHDR(tcws,
 /** === above- and below-water shaders` common functions **/
-"uniform vec3 dcam;\
-uniform samplerCube cloud;\
-\
-varying vec3 position;\
-\
-vec3 getSurfaceRayColor(vec3 origin, vec3 ray, vec3 waterColor) {\
-    vec3 color;\
-\
-    float q = intersectSphere(origin, ray, csph.xyz, csph.w);\
-    if (q < 1.0e6) {\
-        color = getSphereColor(origin + ray * q);\
-    } else if (ray.y < 0.0) {\
-        vec2 t = intersectCube(origin, ray, vec3(-1.0, -dims.z /* pool height */, -1.0), vec3(1.0, 2.0, 1.0));\
-        color = getWallColor(origin + ray * t.y);\
-    } else {\
-        vec2 t = intersectCube(origin, ray, vec3(-1.0, -dims.z /* pool height */, -1.0), vec3(1.0, 2.0, 1.0));\
-        vec3 hit = origin + ray * t.y;\
-        if (hit.y < dims.z /* pool height */ * poolAboveWater) {\
-            color = getWallColor(hit);\
-        } else {\
-            color = textureCube(cloud, ray).rgb;\
-            color += vec3(pow(max(0.0, dot(ldir, ray)), 5000.0)) * vec3(10.0, 8.0, 6.0);\
-        }\
-    }\
-    if (ray.y < 0.0) color *= waterColor;\
-    return color;\
-}\
-\
-void main() {\
-    vec2 coord = position.xz * 0.5 + 0.5;\
-    vec4 info = texture2D(water, coord);\
-\
-    /* make water look more 'peaked' */\
-    for (int i = 0; i < 5; i++) {\
-        coord += info.ba * 0.005;\
-        info = texture2D(water, coord);\
-    }\
-\
-    vec3 incomingRay = normalize(position - dcam);\
-");
+"uniform vec3 dcam;"
+"uniform samplerCube cloud;"
 
-SRC_SHDR(tvws,
-/** main vertex shader **/
-"uniform sampler2D water;\
-uniform mat4 mMVP;\
-attribute vec3 vert;\
-\
-varying vec3 position;\
-\
-void main() {\
-    vec4 info = texture2D(water, vert.xy * 0.5 + 0.5);\
-    position = vert.xzy;\
-    position.y += info.r;\
-    gl_Position = mMVP * vec4(position, 1.0);\
-}",
+"varying vec3 position;"
 
+"vec3 getSurfaceRayColor(vec3 origin, vec3 ray, vec3 waterColor) {"
+    "vec3 color;"
+
+    "float q = intersectSphere(origin, ray, csph.xyz, csph.w);"
+    "if (q < 1.0e6) {"
+        "color = getSphereColor(origin + ray * q);"
+    "} else if (ray.y < 0.0) {"         /* [ pool height ]---v */
+        "vec2 t = intersectCube(origin, ray, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
+        "color = getWallColor(origin + ray * t.y);"
+    "} else {"                          /* [ pool height ]---v */
+        "vec2 t = intersectCube(origin, ray, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
+        "vec3 hit = origin + ray * t.y;"/* v---[ pool height ] */
+        "if (hit.y < poolAboveWater * dims.z) {"
+            "color = getWallColor(hit);"
+        "} else {"
+            "color = textureCube(cloud, ray).rgb;"
+            "color += vec3(pow(max(0.0, dot(ldir, ray)), 5000.0)) * vec3(10.0, 8.0, 6.0);"
+        "}"
+    "}"
+    "if (ray.y < 0.0) color *= waterColor;"
+    "return color;"
+"}"
+
+"void main() {"
+    "vec2 coord = position.xz * 0.5 + 0.5;"
+    "vec4 info = texture2D(water, coord);"
+
+    /* make water look more 'peaked' */
+    "for (int i = 0; i < 5; i++) {"
+        "coord += info.ba * 0.005;"
+        "info = texture2D(water, coord);"
+    "}"
+
+    "vec3 incomingRay = normalize(position - dcam);"
+);
+
+SRC_SHDR(t_ws,
+/** === main vertex shader **/
+"uniform sampler2D water;"
+"uniform mat4 mMVP;"
+"attribute vec3 vert;"
+
+"varying vec3 position;"
+
+"void main() {"
+    "vec4 info = texture2D(water, vert.xy * 0.5 + 0.5);"
+    "position = vert.xzy;"
+    "position.y += info.r;"
+    "gl_Position = mMVP * vec4(position, 1.0);"
+"}",
+
+/** === above-water pixel shader **/
+    "%s"
+    "%s"
+    "vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);"
+    "vec3 reflectedRay = v3reflect(incomingRay, normal);"   /* v---[ DEF_AIRF/DEF_WTRF ] */
+    "vec3 refractedRay = v3refract(incomingRay, normal, dims.x / dims.y);"
+    "float fresnel = mix(0.25, 1.0, pow(1.0 - dot(normal, -incomingRay), 3.0));"
+                                                  /* [ above-water color ]---v */
+    "vec3 reflectedColor = getSurfaceRayColor(position, reflectedRay, clrs[0].rgb);"
+    "vec3 refractedColor = getSurfaceRayColor(position, refractedRay, clrs[0].rgb);"
+                                                  /* [ above-water color ]---^ */
+    "gl_FragColor = vec4(mix(refractedColor, reflectedColor, fresnel), 1.0);"
+"}",
+
+/** === same vertex shader **/
 (char*)-1,
 
-/** === caustics vertex shader **/
-"%s\
-attribute vec3 vert;\
-\
-varying vec3 oldPos;\
-varying vec3 newPos;\
-varying vec3 ray;\
-\
-/* project the ray onto the plane */\
-vec3 project(vec3 origin, vec3 ray, vec3 refractedLight) {\
-    vec2 tcube = intersectCube(origin, ray, vec3(-1.0, -dims.z /* pool height */, -1.0), vec3(1.0, 2.0, 1.0));\
-    origin += ray * tcube.y;\
-    float tplane = (-origin.y - 1.0) / refractedLight.y;\
-    return origin + refractedLight * tplane;\
-}\
-\
-void main() {\
-    vec4 info = texture2D(water, vert.xy * 0.5 + 0.5);\
-    info.ba *= 0.5;\
-    vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);\
-\
-    /* project the vertices along the refracted vertex ray */\
-    vec3 refractedLight = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x /* DEF_AIRF */ / dims.y /* DEF_WTRF */);\
-    ray = v3refract(-ldir, normal, dims.x /* DEF_AIRF */ / dims.y /* DEF_WTRF */);\
-    oldPos = project(vert.xzy, refractedLight, refractedLight);\
-    newPos = project(vert.xzy + vec3(0.0, info.r, 0.0), ray, refractedLight);\
-\
-    gl_Position = vec4(0.75 * (newPos.xz + refractedLight.xz / refractedLight.y), 0.0, 1.0);\
-}");
-
-SRC_SHDR(tpws,
-/** === above-water pixel shader **/
-"   %s\
-    %s\
-    vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);\
-    vec3 reflectedRay = v3reflect(incomingRay, normal);\
-    vec3 refractedRay = v3refract(incomingRay, normal, dims.x /* DEF_AIRF */ / dims.y /* DEF_WTRF */);\
-    float fresnel = mix(0.25, 1.0, pow(1.0 - dot(normal, -incomingRay), 3.0));\
-\
-    vec3 reflectedColor = getSurfaceRayColor(position, reflectedRay, clrs[0].rgb /* above-water color */);\
-    vec3 refractedColor = getSurfaceRayColor(position, refractedRay, clrs[0].rgb /* above-water color */);\
-\
-    gl_FragColor = vec4(mix(refractedColor, reflectedColor, fresnel), 1.0);\
-}",
-
 /** === below-water pixel shader **/
-"   %s\
-    %s\
-    vec3 normal = -vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);\
-    vec3 reflectedRay = v3reflect(incomingRay, normal);\
-    vec3 refractedRay = v3refract(incomingRay, normal, dims.y /* DEF_WTRF */ / dims.x /* DEF_AIRF */);\
-    float fresnel = mix(0.5, 1.0, pow(1.0 - dot(normal, -incomingRay), 3.0));\
-\
-    vec3 reflectedColor = getSurfaceRayColor(position, reflectedRay, clrs[1].rgb /* under-water color */);\
-    vec3 refractedColor = getSurfaceRayColor(position, refractedRay, vec3(1.0)) * clrs[2].rgb /* wall inverse color */;\
-\
-    gl_FragColor = vec4(mix(reflectedColor, refractedColor, (1.0 - fresnel) * length(refractedRay)), 1.0);\
-}",
+    "%s"
+    "%s"
+    "vec3 normal = -vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);"
+    "vec3 reflectedRay = v3reflect(incomingRay, normal);"   /* v--[ DEF_WTRF/DEF_AIRF ] */
+    "vec3 refractedRay = v3refract(incomingRay, normal, dims.y / dims.x);"
+    "float fresnel = mix(0.5, 1.0, pow(1.0 - dot(normal, -incomingRay), 3.0));"
+                                                  /* [ under-water color ]---v */
+    "vec3 reflectedColor = getSurfaceRayColor(position, reflectedRay, clrs[1].rgb);"
+    "vec3 refractedColor = getSurfaceRayColor(position, refractedRay, vec3(1.0)) * clrs[2].rgb;"
+                                                              /* [ wall inverse color ]---^ */
+    "gl_FragColor = vec4(mix(reflectedColor, refractedColor, (1.0 - fresnel) * length(refractedRay)), 1.0);"
+"}",
+
+/** === caustics vertex shader **/
+"%s"
+"attribute vec3 vert;"
+
+"varying vec3 oldPos;"
+"varying vec3 newPos;"
+"varying vec3 ray;"
+
+/* project the ray onto the plane */
+"vec3 project(vec3 origin, vec3 ray, vec3 refractedLight) {"/*v---[ pool height ] */
+    "vec2 tcube = intersectCube(origin, ray, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
+    "origin += ray * tcube.y;"
+    "float tplane = (-origin.y - 1.0) / refractedLight.y;"
+    "return origin + refractedLight * tplane;"
+"}"
+
+"void main() {"
+    "vec4 info = texture2D(water, vert.xy * 0.5 + 0.5);"
+    "info.ba *= 0.5;"
+    "vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);"
+
+    /* project the vertices along the refracted vertex ray */
+    "vec3 refractedLight = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x / dims.y);"
+    "ray = v3refract(-ldir, normal, dims.x / dims.y);"/*<-[ DEF_AIRF/DEF_WTRF ]-^ */
+    "oldPos = project(vert.xzy, refractedLight, refractedLight);"
+    "newPos = project(vert.xzy + vec3(0.0, info.r, 0.0), ray, refractedLight);"
+
+    "gl_Position = vec4(0.75 * (newPos.xz + refractedLight.xz / refractedLight.y), 0.0, 1.0);"
+"}",
 
 /** === caustics pixel shader **/
-"%s\
-varying vec3 oldPos;\
-varying vec3 newPos;\
-varying vec3 ray;\
-\
-void main() {\
-    /* if the triangle gets smaller, it gets brighter, and vice versa */\
-    float oldArea = length(dFdx(oldPos)) * length(dFdy(oldPos));\
-    float newArea = length(dFdx(newPos)) * length(dFdy(newPos));\
-    gl_FragColor = vec4(oldArea / newArea * 0.2, 1.0, 0.0, 0.0);\
-\
-    vec3 refractedLight = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x /* DEF_AIRF */ / dims.y /* DEF_WTRF */);\
-\
-    /* compute a blob shadow and make sure we only draw a shadow if the player is blocking the light */\
-    vec3 dir = (csph.xyz - newPos) / csph.w;\
-    vec3 area = cross(dir, refractedLight);\
-    float shadow = dot(area, area);\
-    float dist = dot(dir, -refractedLight);\
-    shadow = 1.0 + (shadow - 1.0) / (0.05 + dist * 0.025);\
-    shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);\
-    shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));\
-    gl_FragColor.g = shadow;\
-\
-    /* shadow for the rim of the pool */\
-    vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -dims.z /* pool height */, -1.0), vec3(1.0, 2.0, 1.0));\
-    gl_FragColor.r *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - poolAboveWater)));\
-}");
+"%s"
+"varying vec3 oldPos;"
+"varying vec3 newPos;"
+"varying vec3 ray;"
 
+"void main() {"
+    /* if the triangle gets smaller, it gets brighter, and vice versa */
+    "float oldArea = length(dFdx(oldPos)) * length(dFdy(oldPos));"
+    "float newArea = length(dFdx(newPos)) * length(dFdy(newPos));"
+    "gl_FragColor = vec4(oldArea / newArea * 0.2, 1.0, 0.0, 0.0);"
+                                             /* [ DEF_AIRF/DEF_WTRF ]---v */
+    "vec3 refractedLight = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x / dims.y);"
 
+    /* compute a blob shadow and make sure we only draw a shadow if the player is blocking the light */
+    "vec3 dir = (csph.xyz - newPos) / csph.w;"
+    "vec3 area = cross(dir, refractedLight);"
+    "float shadow = dot(area, area);"
+    "float dist = dot(dir, -refractedLight);"
+    "shadow = 1.0 + (shadow - 1.0) / (0.05 + dist * 0.025);"
+    "shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);"
+    "shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));"
+    "gl_FragColor.g = shadow;"
+
+    /* shadow for the rim of the pool              [ pool height ]---v */
+    "vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
+    "gl_FragColor.r *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - poolAboveWater)));"
+"}");
 
 /** Pool walls **/
 
-SRC_SHDR(tvps,
+SRC_SHDR(t_ps,
 /** === main vertex shader **/
-"%s\
-uniform mat4 mMVP;\
-attribute vec3 vert;\
-\
-varying vec3 position;\
-\
-void main(void) {\
-    position = vert;\
-    position.y = ((1.0 - position.y) * dims.w /* pool coef. height */ - 1.0) * dims.z /* pool height */;\
-    gl_Position = mMVP * vec4(position, 1.0);\
-}");
+"%s"
+"uniform mat4 mMVP;"
+"attribute vec3 vert;"
 
-SRC_SHDR(tpps,
+"varying vec3 position;"
+
+"void main(void) {"
+    "position = vert;"/*v---[ pool height ]      v-----[ pool coef. height ] */
+    "position.y = dims.z * ((1.0 - position.y) * dims.w - 1.0);"
+    "gl_Position = mMVP * vec4(position, 1.0);"
+"}",
+
 /** === main pixel shader **/
-"%s\
-varying vec3 position;\
-\
-void main(void) {\
-    gl_FragColor = vec4(getWallColor(position), 1.0);\
-    vec4 info = texture2D(water, position.xz * 0.5 + 0.5);\
-    if (position.y < info.r) {\
-        gl_FragColor.rgb *= clrs[1].rgb /* under-water color */ * 1.2;\
-    }\
-}");
+"%s"
+"varying vec3 position;"
+
+"void main(void) {"
+    "gl_FragColor = vec4(getWallColor(position), 1.0);"
+    "vec4 info = texture2D(water, position.xz * 0.5 + 0.5);"
+    "if (position.y < info.r) {" /* v---[ under-water color ] */
+        "gl_FragColor.rgb *= clrs[1].rgb * 1.2;"
+    "}"
+"}");
 
 
 
 /** Sphere **/
 
-SRC_SHDR(tvss,
+SRC_SHDR(t_ss,
 /** === main vertex shader **/
-"%s\
-uniform mat4 mMVP;\
-attribute vec3 vert;\
-\
-varying vec3 position;\
-\
-void main() {\
-    position = csph.xyz + vert.xyz * csph.w;\
-    gl_Position = mMVP * vec4(position, 1.0);\
-}");
+"%s"
+"uniform mat4 mMVP;"
+"attribute vec3 vert;"
 
-SRC_SHDR(tpss,
+"varying vec3 position;"
+
+"void main() {"
+    "position = csph.xyz + vert.xyz * csph.w;"
+    "gl_Position = mMVP * vec4(position, 1.0);"
+"}",
+
 /** === main pixel shader **/
-"%s\
-varying vec3 position;\
-\
-void main() {\
-    gl_FragColor = vec4(getSphereColor(position), 1.0);\
-    vec4 info = texture2D(water, position.xz * 0.5 + 0.5);\
-    if (position.y < info.r)\
-        gl_FragColor.rgb *= clrs[1].rgb /* under-water color */ * 1.2;\
-}");
+"%s"
+"varying vec3 position;"
+
+"void main() {"
+    "gl_FragColor = vec4(getSphereColor(position), 1.0);"
+    "vec4 info = texture2D(water, position.xz * 0.5 + 0.5);"
+    "if (position.y < info.r)"   /* v---[ under-water color ] */
+        "gl_FragColor.rgb *= clrs[1].rgb * 1.2;"
+"}");
 
 
 
 /** Gauss-blur surface **/
 
-SRC_SHDR(tvgs,
+SRC_SHDR(t_gs,
 /** === main vertex shader **/
-"attribute vec3 vert;\
-\
-varying vec2 coord;\
-\
-void main() {\
-    coord = vert.xy * 0.5 + 0.5;\
-    gl_Position = vec4(vert.xyz, 1.0);\
-}");
+"attribute vec3 vert;"
 
-SRC_SHDR(tpgs,
+"varying vec2 coord;"
+
+"void main() {"
+    "coord = vert.xy * 0.5 + 0.5;"
+    "gl_Position = vec4(vert.xyz, 1.0);"
+"}",
+
 /** === "1D-blur + transposition" pixel shader **/
-"uniform sampler2D caust;\
-uniform vec2 cinv;\
-\
-varying vec2 coord;\
-\
-void main() {\
-    vec4 info = texture2D(caust, coord.yx);\
-\
-    info.r = 0.199676 * info.r\
-    + 0.176213 * (texture2D(caust, vec2(coord.y - 1.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 1.0 * cinv.x, coord.x)).r)\
-    + 0.121109 * (texture2D(caust, vec2(coord.y - 2.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 2.0 * cinv.x, coord.x)).r)\
-    + 0.064825 * (texture2D(caust, vec2(coord.y - 3.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 3.0 * cinv.x, coord.x)).r)\
-    + 0.027023 * (texture2D(caust, vec2(coord.y - 4.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 4.0 * cinv.x, coord.x)).r)\
-    + 0.008773 * (texture2D(caust, vec2(coord.y - 5.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 5.0 * cinv.x, coord.x)).r)\
-    + 0.002218 * (texture2D(caust, vec2(coord.y - 6.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 6.0 * cinv.x, coord.x)).r);\
-\
-    gl_FragColor = info;\
-}");
+"uniform sampler2D caust;"
+"uniform vec2 cinv;"
+
+"varying vec2 coord;"
+
+"void main() {"
+    "vec4 info = texture2D(caust, coord.yx);"
+
+    "info.r = 0.199676 * info.r"
+    "+ 0.176213 * (texture2D(caust, vec2(coord.y - 1.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 1.0 * cinv.x, coord.x)).r)"
+    "+ 0.121109 * (texture2D(caust, vec2(coord.y - 2.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 2.0 * cinv.x, coord.x)).r)"
+    "+ 0.064825 * (texture2D(caust, vec2(coord.y - 3.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 3.0 * cinv.x, coord.x)).r)"
+    "+ 0.027023 * (texture2D(caust, vec2(coord.y - 4.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 4.0 * cinv.x, coord.x)).r)"
+    "+ 0.008773 * (texture2D(caust, vec2(coord.y - 5.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 5.0 * cinv.x, coord.x)).r)"
+    "+ 0.002218 * (texture2D(caust, vec2(coord.y - 6.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 6.0 * cinv.x, coord.x)).r);"
+
+    "gl_FragColor = info;"
+"}");
 
 #undef SRC_SHDR
 
@@ -538,12 +540,12 @@ FRBO *MakeRBO(OGL_FVBO *vobj, GLuint tfrn, GLuint tbak) {
     retn->tfrn = tfrn;
     retn->tbak = tbak;
 
-    glGenFramebuffersEXT(1, &retn->frmb);
-    glGenRenderbuffersEXT(1, &retn->rndb);
-    glBindRenderbufferEXT(GL_RENDERBUFFER, retn->rndb);
-    glRenderbufferStorageEXT(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
-                             ftex->xdim, ftex->ydim);
-    glBindRenderbufferEXT(GL_RENDERBUFFER, 0);
+    glGenFramebuffers(1, &retn->frmb);
+    glGenRenderbuffers(1, &retn->rndb);
+    glBindRenderbuffer(GL_RENDERBUFFER, retn->rndb);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
+                          ftex->xdim, ftex->ydim);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
     return retn;
 }
 
@@ -554,19 +556,19 @@ void DrawRBO(FRBO *robj, GLuint shad) {
     GLint view[4];
 
     glGetIntegerv(GL_VIEWPORT, view);
-    glBindFramebufferEXT(GL_FRAMEBUFFER, robj->frmb);
-    glBindRenderbufferEXT(GL_RENDERBUFFER, robj->rndb);
+    glBindFramebuffer(GL_FRAMEBUFFER, robj->frmb);
+    glBindRenderbuffer(GL_RENDERBUFFER, robj->rndb);
 
     ttex = *(btex = OGL_BindTex(robj->vobj, robj->tbak, OGL_TEX_FRMB));
-    glFramebufferRenderbufferEXT(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                                 GL_RENDERBUFFER, robj->rndb);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                              GL_RENDERBUFFER, robj->rndb);
     glViewport(0, 0, btex->xdim, btex->ydim);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     OGL_DrawVBO(robj->vobj, shad);
 
-    glBindRenderbufferEXT(GL_RENDERBUFFER, 0);
-    glBindFramebufferEXT(GL_FRAMEBUFFER, 0);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(view[0], view[1], view[2], view[3]);
 
     *btex = *(ftex = OGL_BindTex(robj->vobj, robj->tfrn, OGL_TEX_NSET));
@@ -577,8 +579,8 @@ void DrawRBO(FRBO *robj, GLuint shad) {
 
 void FreeRBO(FRBO **robj) {
     if (robj && *robj) {
-        glDeleteRenderbuffersEXT(1, &(*robj)->rndb);
-        glDeleteFramebuffersEXT(1, &(*robj)->frmb);
+        glDeleteRenderbuffers(1, &(*robj)->rndb);
+        glDeleteFramebuffers(1, &(*robj)->frmb);
         free(*robj);
         *robj = NULL;
     }
@@ -1052,7 +1054,7 @@ ENGC *cMakeEngine() {
 
     retn->csur = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
                              countof(attr), attr, countof(cuni), cuni,
-                             tvcs, tpcs, *t___);
+                             t_cs, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1064,7 +1066,7 @@ ENGC *cMakeEngine() {
 
     retn->gcau = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
                              countof(attr), attr, countof(guni), guni,
-                             tvgs, tpgs, *t___, *t_ws);
+                             t_gs, *t___, *tcws);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1083,7 +1085,7 @@ ENGC *cMakeEngine() {
     retn->watr = OGL_MakeVBO(4, MakePlane(&attr[0], &attr[1],
                                           DEF_PDIM, retn->wsur),
                              countof(attr), attr, countof(wuni), wuni,
-                             tvws, tpws, *t___, *t_ws);
+                             t_ws, *t___, *tcws);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1099,7 +1101,7 @@ ENGC *cMakeEngine() {
 
     retn->pool = OGL_MakeVBO(3, MakeCube(&attr[0], &attr[1], DEF_PDIM),
                              countof(attr), attr, countof(puni), puni,
-                             tvps, tpps, *t___);
+                             t_ps, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1114,7 +1116,7 @@ ENGC *cMakeEngine() {
 
     retn->sphr = OGL_MakeVBO(2, MakeSphere(&attr[0], &attr[1], 16, 32),
                              countof(attr), attr, countof(suni), suni,
-                             tvss, tpss, *t___);
+                             t_ss, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 

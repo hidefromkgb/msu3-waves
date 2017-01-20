@@ -15,44 +15,44 @@ typedef struct {
 
 
 
-bool OnTrue(void *this, SEL name) {
+bool MAC_Handler(OnTrue) {
     return true;
 }
 
-bool OnFalse(void *this, SEL name) {
+bool MAC_Handler(OnFalse) {
     return false;
 }
 
-bool OnClose(void *this, SEL name) {
-    stop_(sharedApplication(NSApplication()), this);
+bool MAC_Handler(OnClose) {
+    stop_(sharedApplication(NSApplication()), self);
     return true;
 }
 
-void OnSize(void *this, SEL name) {
+void MAC_Handler(OnSize) {
     CGRect rect;
     ENGC *engc;
 
-    rect = frame(this);
-    MAC_GetIvar(this, VAR_ENGC, &engc);
+    rect = frame(self);
+    MAC_GetIvar(self, VAR_ENGC, &engc);
     cResizeWindow(engc, rect.size.width, rect.size.height);
 }
 
-void OnDraw(void *this, SEL name, CGRect rect) {
+void MAC_Handler(OnDraw, CGRect rect) {
     ENGC *engc;
 
-    MAC_GetIvar(this, VAR_ENGC, &engc);
+    MAC_GetIvar(self, VAR_ENGC, &engc);
     cRedrawWindow(engc);
-    flushBuffer(openGLContext(this));
+    flushBuffer(openGLContext(self));
 }
 
-void OnKbd(void *this, SEL name, NSEvent *ekbd) {
+void MAC_Handler(OnKbd, NSEvent *ekbd) {
     CFStringRef temp;
     ENGC *engc;
     long down;
 
     if (!CFStringGetLength(temp = charactersIgnoringModifiers(ekbd)))
         return;
-    MAC_GetIvar(this, VAR_ENGC, &engc);
+    MAC_GetIvar(self, VAR_ENGC, &engc);
     down = (type(ekbd) == NSKeyDown)? 1 : 0;
     switch (CFStringGetCharacterAtIndex(temp, 0)) {
         case NSLeftArrowFunctionKey:

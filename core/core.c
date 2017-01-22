@@ -6,7 +6,8 @@
 
 
 
-#define randf(f) (((float)(f) * 2.0 / (float)RAND_MAX) * (float)(rand() & RAND_MAX) - (float)(f))
+#define randf(f) (((float)(f) * 2.0 / (float)RAND_MAX) \
+                 * (float)(rand() & RAND_MAX) - (float)(f))
 #ifndef countof
 #define countof(a) (sizeof(a) / sizeof(*(a)))
 #endif
@@ -27,7 +28,7 @@
 
 #define DEF_SCLR ( 90 +  20 +  80) /** (white = 255) Sky color coef.    **/
 #define DEF_AWTR (128 +  32 + 160) /** (white = 128) Above-water coef.  **/
-#define DEF_UWTR (115 +  50 + 128) /** (white = 128) Under-water coef.  **/
+#define DEF_UWTR (115 +  50 + 128) /** (white = 128) Underwater coef.   **/
 #define DEF_WCLR (128 + 100 + 140) /** (white = 128) Wall inverse coef. **/
 
 
@@ -58,8 +59,8 @@ struct ENGC {
 
     VEC_T2IV angp;
     VEC_T2FV fang, wdet, cdet, winv, cinv;
-    VEC_T3FV dclr, dcam, ldir, ftrn;
-    VEC_T4FV cdrp, csph, dims;
+    VEC_T3FV dclr, dcam, ldir, ftrn, dims;
+    VEC_T4FV cdrp, csph;
 
     GLfloat shei, rdrp, wsur;
     GLboolean line, halt, keys[KEY_ALL_KEYS];
@@ -71,10 +72,10 @@ struct ENGC {
 
 /** === a set of common functions **/
 SRC_SHDR(t___,            /* v---[ pool coef. height ] */
-"#define poolAboveWater (dims.w * 2.0 - 1.0)\n"
+"#define poolAboveWater (dims.z * 2.0 - 1.0)\n"
 "uniform vec3 ldir;"
+"uniform vec3 dims;"
 "uniform vec4 csph;"
-"uniform vec4 dims;"
 "uniform mat4 clrs;"
 "uniform sampler2D tiles;"
 "uniform sampler2D caust;"
@@ -91,12 +92,12 @@ SRC_SHDR(t___,            /* v---[ pool coef. height ] */
     "return I - 2.0 * dot(N, I) * N;"
 "}"
 
-"float intersectSphere(vec3 origin, vec3 ray, vec3 csph, float sphereRadius) {"
+"float intersectSphere(vec3 origin, vec3 ray, vec3 csph, float radius) {"
     "vec3 toSphere = origin - csph;"
 
     "float a = dot(ray, ray);"
     "float b = 2.0 * dot(toSphere, ray);"
-    "float c = dot(toSphere, toSphere) - sphereRadius * sphereRadius;"
+    "float c = dot(toSphere, toSphere) - radius * radius;"
     "float discriminant = b*b - 4.0*a*c;"
 
     "if (discriminant > 0.0) {"
@@ -114,14 +115,15 @@ SRC_SHDR(t___,            /* v---[ pool coef. height ] */
     "color *= 1.0 - 0.9 / pow((1.0 + csph.w - abs(point.z)) / csph.w, 3.0);"
     "color *= 1.0 - 0.9 / pow((point.y + 1.0 + csph.w) / csph.w, 3.0);"
 
-    /* caustics */
-    "vec3 sphereNormal = (point - csph.xyz) / csph.w;"/* [ DEF_AIRF/DEF_WTRF ]-v */
-    "vec3 refractedLight = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x / dims.y);"
-    "float diffuse = max(0.0, dot(-refractedLight, sphereNormal)) * 0.5;"
+    /* caustics                                    [ DEF_AIRF/DEF_WTRF ] */
+    "vec3 sphereNormal = (point - csph.xyz) / csph.w;" /*    v           */
+    "vec3 refrac = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x);"
+    "float diffuse = max(0.0, dot(-refrac, sphereNormal)) * 0.5;"
     "vec4 info = texture2D(water, point.xz * 0.5 + 0.5);"
 
     "if (point.y < info.r) {"
-        "vec4 caustic = texture2D(caust, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);"
+        "vec4 caustic = texture2D(caust, 0.5 + 0.75 * 0.5"
+                              "* (point.xz - point.y * refrac.xz / refrac.y));"
         "diffuse *= caustic.r * 4.0;"
     "}"
     "color += diffuse;"
@@ -154,23 +156,25 @@ SRC_SHDR(t___,            /* v---[ pool coef. height ] */
         "wallColor = texture2D(tiles, point.xz * 0.5 + 0.5).rgb;"
         "normal = vec3(0.0, 1.0, 0.0);"
     "}"
-
-    "scale /= length(point);" /* pool ambient occlusion */
-    "scale *= 1.0 - 0.9 / pow(length(point - csph.xyz) / csph.w, 4.0);" /* sphere ambient occlusion */
-
-    /* caustics                              [ DEF_AIRF/DEF_WTRF ]-------v */
-    "vec3 refractedLight = -v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x / dims.y );"
-    "float diffuse = max(0.0, dot(refractedLight, normal));"
+    "scale /= length(point);" /* <---[ pool ambient occlusion ] */
+    "scale *= 1.0 - 0.9 / pow(length(point - csph.xyz) / csph.w, 4.0);"
+    /* ^---[ sphere ambient occlusion ] */
+    /* caustics                       [ DEF_AIRF/DEF_WTRF ]---v */
+    "vec3 refrac = -v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x);"
+    "float diffuse = max(0.0, dot(refrac, normal));"
 
     "vec4 info = texture2D(water, point.xz * 0.5 + 0.5);"
 
     "if (point.y < info.r) {"
-        "vec4 caustic = texture2D(caust, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);"
+        "vec4 caustic = texture2D(caust, 0.5 + 0.5 * 0.75"
+                              "* (point.xz - point.y * refrac.xz / refrac.y));"
         "scale += diffuse * caustic.r * 2.0 * caustic.g;"
     "} else {"
-        /* shadow for the rim of the pool            [ pool height ]---v */
-        "vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
-        "diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - poolAboveWater)));"
+        /* shadow for the rim of the pool     [ pool height ]--v */
+        "vec2 t = intersectCube(point, refrac, vec3(-1.0, -dims.y, -1.0),"
+                               "vec3(1.0, 2.0, 1.0));"
+        "diffuse /= 1.0 + exp((point.y + refrac.y * t.y - poolAboveWater)"
+                            "* -200.0 / (1.0 + 10.0 * (t.y - t.x)));"
         "scale += diffuse * 0.5;"
     "}"
 
@@ -236,8 +240,14 @@ SRC_SHDR(t_cs,
     "vec4 info = texture2D(water, coord);"
 
     /* update the normal */
-    "vec3 dx = vec3(winv.x, texture2D(water, vec2(coord.x + winv.x, coord.y)).r - info.r, 0.0);"
-    "vec3 dy = vec3(0.0, texture2D(water, vec2(coord.x, coord.y + winv.y)).r - info.r, winv.y);"
+    "vec3 dx = vec3(winv.x,"
+                   "texture2D(water,"
+                             "vec2(coord.x + winv.x, coord.y)).r - info.r,"
+                   "0.0);"
+    "vec3 dy = vec3(0.0,"
+                   "texture2D(water,"
+                             "vec2(coord.x, coord.y + winv.y)).r - info.r,"
+                   "winv.y);"
     "info.ba = normalize(cross(dy, dx)).xz;"
 
     "gl_FragColor = info;"
@@ -259,7 +269,8 @@ SRC_SHDR(t_cs,
     "vec4 info = texture2D(water, coord);"
 
     /* add the drop to the height */
-    "float drop = max(0.0, 1.0 - length(cdrp.xy * 0.5 + 0.5 - coord) / cdrp.w);"
+    "float drop = max(1.0 - length(cdrp.xy * 0.5 + 0.5 - coord) / cdrp.w,"
+                     "0.0);"
     "drop = 0.5 - cos(drop * PI) * 0.5;"
     "info.r += drop * cdrp.z;"
 
@@ -294,16 +305,19 @@ SRC_SHDR(tcws,
     "if (q < 1.0e6) {"
         "color = getSphereColor(origin + ray * q);"
     "} else if (ray.y < 0.0) {"         /* [ pool height ]---v */
-        "vec2 t = intersectCube(origin, ray, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
+        "vec2 t = intersectCube(origin, ray, vec3(-1.0, -dims.y, -1.0),"
+                               "vec3(1.0, 2.0, 1.0));"
         "color = getWallColor(origin + ray * t.y);"
     "} else {"                          /* [ pool height ]---v */
-        "vec2 t = intersectCube(origin, ray, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
+        "vec2 t = intersectCube(origin, ray, vec3(-1.0, -dims.y, -1.0),"
+                               "vec3(1.0, 2.0, 1.0));"
         "vec3 hit = origin + ray * t.y;"/* v---[ pool height ] */
-        "if (hit.y < poolAboveWater * dims.z) {"
+        "if (hit.y < poolAboveWater * dims.y) {"
             "color = getWallColor(hit);"
         "} else {"
             "color = textureCube(cloud, ray).rgb;"
-            "color += vec3(pow(max(0.0, dot(ldir, ray)), 5000.0)) * vec3(10.0, 8.0, 6.0);"
+            "color += vec3(pow(max(0.0, dot(ldir, ray)), 5000.0))"
+                   "* vec3(10.0, 8.0, 6.0);"
         "}"
     "}"
     "if (ray.y < 0.0) color *= waterColor;"
@@ -320,7 +334,7 @@ SRC_SHDR(tcws,
         "info = texture2D(water, coord);"
     "}"
 
-    "vec3 incomingRay = normalize(position - dcam);"
+    "vec3 income = normalize(position - dcam);" /** <---[ incoming ray ] **/
 );
 
 SRC_SHDR(t_ws,
@@ -342,13 +356,13 @@ SRC_SHDR(t_ws,
     "%s"
     "%s"
     "vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);"
-    "vec3 reflectedRay = v3reflect(incomingRay, normal);"   /* v---[ DEF_AIRF/DEF_WTRF ] */
-    "vec3 refractedRay = v3refract(incomingRay, normal, dims.x / dims.y);"
-    "float fresnel = mix(0.25, 1.0, pow(1.0 - dot(normal, -incomingRay), 3.0));"
-                                                  /* [ above-water color ]---v */
-    "vec3 reflectedColor = getSurfaceRayColor(position, reflectedRay, clrs[0].rgb);"
-    "vec3 refractedColor = getSurfaceRayColor(position, refractedRay, clrs[0].rgb);"
-                                                  /* [ above-water color ]---^ */
+    "vec3 reflec = v3reflect(income, normal);"/* v--[ DEF_AIRF/DEF_WTRF ] */
+    "vec3 refrac = v3refract(income, normal, dims.x);"
+    "float fresnel = mix(0.25, 1.0, pow(1.0 - dot(normal, -income), 3.0));"
+                                            /* [ above-water color ]---v */
+    "vec3 reflectedColor = getSurfaceRayColor(position, reflec, clrs[0].rgb);"
+    "vec3 refractedColor = getSurfaceRayColor(position, refrac, clrs[0].rgb);"
+                                            /* [ above-water color ]---^ */
     "gl_FragColor = vec4(mix(refractedColor, reflectedColor, fresnel), 1.0);"
 "}",
 
@@ -359,14 +373,15 @@ SRC_SHDR(t_ws,
     "%s"
     "%s"
     "vec3 normal = -vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);"
-    "vec3 reflectedRay = v3reflect(incomingRay, normal);"   /* v--[ DEF_WTRF/DEF_AIRF ] */
-    "vec3 refractedRay = v3refract(incomingRay, normal, dims.y / dims.x);"
-    "float fresnel = mix(0.5, 1.0, pow(1.0 - dot(normal, -incomingRay), 3.0));"
-                                                  /* [ under-water color ]---v */
-    "vec3 reflectedColor = getSurfaceRayColor(position, reflectedRay, clrs[1].rgb);"
-    "vec3 refractedColor = getSurfaceRayColor(position, refractedRay, vec3(1.0)) * clrs[2].rgb;"
-                                                              /* [ wall inverse color ]---^ */
-    "gl_FragColor = vec4(mix(reflectedColor, refractedColor, (1.0 - fresnel) * length(refractedRay)), 1.0);"
+    "vec3 reflec = v3reflect(income, normal);"/* v--[ DEF_WTRF/DEF_AIRF ] */
+    "vec3 refrac = v3refract(income, normal, 1.0 / dims.x);"
+    "float fresnel = mix(0.5, 1.0, pow(1.0 - dot(normal, -income), 3.0));"
+                                             /* [ underwater color ]---v */
+    "vec3 reflectedColor = getSurfaceRayColor(position, reflec, clrs[1].rgb);"
+    "vec3 refractedColor = clrs[2].rgb" /* <---[ wall inverse color ] */
+                        "* getSurfaceRayColor(position, refrac, vec3(1.0));"
+    "gl_FragColor = vec4(mix(reflectedColor, refractedColor,"
+                           "(1.0 - fresnel) * length(refrac)), 1.0);"
 "}",
 
 /** === caustics vertex shader **/
@@ -378,11 +393,12 @@ SRC_SHDR(t_ws,
 "varying vec3 ray;"
 
 /* project the ray onto the plane */
-"vec3 project(vec3 origin, vec3 ray, vec3 refractedLight) {"/*v---[ pool height ] */
-    "vec2 tcube = intersectCube(origin, ray, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
+"vec3 project(vec3 origin, vec3 ray, vec3 refrac) {"  /* v--[ pool height ] */
+    "vec2 tcube = intersectCube(origin, ray, vec3(-1.0, -dims.y, -1.0),"
+                               "vec3(1.0, 2.0, 1.0));"
     "origin += ray * tcube.y;"
-    "float tplane = (-origin.y - 1.0) / refractedLight.y;"
-    "return origin + refractedLight * tplane;"
+    "float tplane = (-origin.y - 1.0) / refrac.y;"
+    "return origin + refrac * tplane;"
 "}"
 
 "void main() {"
@@ -391,12 +407,12 @@ SRC_SHDR(t_ws,
     "vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);"
 
     /* project the vertices along the refracted vertex ray */
-    "vec3 refractedLight = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x / dims.y);"
-    "ray = v3refract(-ldir, normal, dims.x / dims.y);"/*<-[ DEF_AIRF/DEF_WTRF ]-^ */
-    "oldPos = project(vert.xzy, refractedLight, refractedLight);"
-    "newPos = project(vert.xzy + vec3(0.0, info.r, 0.0), ray, refractedLight);"
+    "vec3 refrac = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x);"
+    "ray = v3refract(-ldir, normal, dims.x);"/* <------      ^            */
+    "oldPos = project(vert.xzy, refrac, refrac);"/* [ DEF_AIRF/DEF_WTRF ] */
+    "newPos = project(vert.xzy + vec3(0.0, info.r, 0.0), ray, refrac);"
 
-    "gl_Position = vec4(0.75 * (newPos.xz + refractedLight.xz / refractedLight.y), 0.0, 1.0);"
+    "gl_Position = vec4(0.75 * (newPos.xz + refrac.xz / refrac.y), 0.0, 1.0);"
 "}",
 
 /** === caustics pixel shader **/
@@ -410,22 +426,25 @@ SRC_SHDR(t_ws,
     "float oldArea = length(dFdx(oldPos)) * length(dFdy(oldPos));"
     "float newArea = length(dFdx(newPos)) * length(dFdy(newPos));"
     "gl_FragColor = vec4(oldArea / newArea * 0.2, 1.0, 0.0, 0.0);"
-                                             /* [ DEF_AIRF/DEF_WTRF ]---v */
-    "vec3 refractedLight = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x / dims.y);"
+                                  /* [ DEF_AIRF/DEF_WTRF ]---v */
+    "vec3 refrac = v3refract(-ldir, vec3(0.0, 1.0, 0.0), dims.x);"
 
-    /* compute a blob shadow and make sure we only draw a shadow if the player is blocking the light */
+    /* compute a blob shadow and make sure we only
+       draw a shadow if the viewer is blocking the light */
     "vec3 dir = (csph.xyz - newPos) / csph.w;"
-    "vec3 area = cross(dir, refractedLight);"
+    "vec3 area = cross(dir, refrac);"
     "float shadow = dot(area, area);"
-    "float dist = dot(dir, -refractedLight);"
+    "float dist = dot(dir, -refrac);"
     "shadow = 1.0 + (shadow - 1.0) / (0.05 + dist * 0.025);"
     "shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);"
     "shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));"
     "gl_FragColor.g = shadow;"
 
-    /* shadow for the rim of the pool              [ pool height ]---v */
-    "vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -dims.z, -1.0), vec3(1.0, 2.0, 1.0));"
-    "gl_FragColor.r *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - poolAboveWater)));"
+    /* shadow for the rim of the pool      [ pool height ]---v */
+    "vec2 t = intersectCube(newPos, -refrac, vec3(-1.0, -dims.y, -1.0),"
+                           "vec3(1.0, 2.0, 1.0));"
+    "gl_FragColor.r /= 1.0 + exp((newPos.y - poolAboveWater - refrac.y * t.y)"
+                               "* -200.0 / (1.0 + 10.0 * (t.y - t.x)));"
 "}");
 
 /** Pool walls **/
@@ -439,8 +458,8 @@ SRC_SHDR(t_ps,
 "varying vec3 position;"
 
 "void main(void) {"
-    "position = vert;"/*v---[ pool height ]      v-----[ pool coef. height ] */
-    "position.y = dims.z * ((1.0 - position.y) * dims.w - 1.0);"
+    "position = vert;"/*v---[ pool height ]      v---[ pool coef. height ] */
+    "position.y = dims.y * ((1.0 - position.y) * dims.z - 1.0);"
     "gl_Position = mMVP * vec4(position, 1.0);"
 "}",
 
@@ -451,7 +470,7 @@ SRC_SHDR(t_ps,
 "void main(void) {"
     "gl_FragColor = vec4(getWallColor(position), 1.0);"
     "vec4 info = texture2D(water, position.xz * 0.5 + 0.5);"
-    "if (position.y < info.r) {" /* v---[ under-water color ] */
+    "if (position.y < info.r) {" /* v---[ underwater color ] */
         "gl_FragColor.rgb *= clrs[1].rgb * 1.2;"
     "}"
 "}");
@@ -480,7 +499,7 @@ SRC_SHDR(t_ss,
 "void main() {"
     "gl_FragColor = vec4(getSphereColor(position), 1.0);"
     "vec4 info = texture2D(water, position.xz * 0.5 + 0.5);"
-    "if (position.y < info.r)"   /* v---[ under-water color ] */
+    "if (position.y < info.r)"   /* v---[ underwater color ] */
         "gl_FragColor.rgb *= clrs[1].rgb * 1.2;"
 "}");
 
@@ -509,13 +528,18 @@ SRC_SHDR(t_gs,
     "vec4 info = texture2D(caust, coord.yx);"
 
     "info.r = 0.199676 * info.r"
-    "+ 0.176213 * (texture2D(caust, vec2(coord.y - 1.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 1.0 * cinv.x, coord.x)).r)"
-    "+ 0.121109 * (texture2D(caust, vec2(coord.y - 2.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 2.0 * cinv.x, coord.x)).r)"
-    "+ 0.064825 * (texture2D(caust, vec2(coord.y - 3.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 3.0 * cinv.x, coord.x)).r)"
-    "+ 0.027023 * (texture2D(caust, vec2(coord.y - 4.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 4.0 * cinv.x, coord.x)).r)"
-    "+ 0.008773 * (texture2D(caust, vec2(coord.y - 5.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 5.0 * cinv.x, coord.x)).r)"
-    "+ 0.002218 * (texture2D(caust, vec2(coord.y - 6.0 * cinv.x, coord.x)).r + texture2D(caust, vec2(coord.y + 6.0 * cinv.x, coord.x)).r);"
-
+    "+ 0.176213 * (texture2D(caust, vec2(coord.y - 1.0 * cinv.x, coord.x)).r"
+               "+  texture2D(caust, vec2(coord.y + 1.0 * cinv.x, coord.x)).r)"
+    "+ 0.121109 * (texture2D(caust, vec2(coord.y - 2.0 * cinv.x, coord.x)).r"
+               "+  texture2D(caust, vec2(coord.y + 2.0 * cinv.x, coord.x)).r)"
+    "+ 0.064825 * (texture2D(caust, vec2(coord.y - 3.0 * cinv.x, coord.x)).r"
+               "+  texture2D(caust, vec2(coord.y + 3.0 * cinv.x, coord.x)).r)"
+    "+ 0.027023 * (texture2D(caust, vec2(coord.y - 4.0 * cinv.x, coord.x)).r"
+               "+  texture2D(caust, vec2(coord.y + 4.0 * cinv.x, coord.x)).r)"
+    "+ 0.008773 * (texture2D(caust, vec2(coord.y - 5.0 * cinv.x, coord.x)).r"
+               "+  texture2D(caust, vec2(coord.y + 5.0 * cinv.x, coord.x)).r)"
+    "+ 0.002218 * (texture2D(caust, vec2(coord.y - 6.0 * cinv.x, coord.x)).r"
+               "+  texture2D(caust, vec2(coord.y + 6.0 * cinv.x, coord.x)).r);"
     "gl_FragColor = info;"
 "}");
 
@@ -742,13 +766,13 @@ void cUpdateState(ENGC *engc) {
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     if (engc->keys[KEY_W] ^ engc->keys[KEY_S]) {
-        fang = (VEC_T2FV){engc->fang.x + 0.5 * M_PI, engc->fang.y};
+        fang = (VEC_T2FV){{engc->fang.x + 0.5 * M_PI, engc->fang.y}};
         VEC_V3FromAng(&vadd, &fang);
         VEC_V3MulC(&vadd, (engc->keys[KEY_W])? DEF_FTRN : -DEF_FTRN);
         VEC_V3AddV(&engc->ftrn, &vadd);
     }
     if (engc->keys[KEY_A] ^ engc->keys[KEY_D]) {
-        fang = (VEC_T2FV){engc->fang.x, 0.0};
+        fang = (VEC_T2FV){{engc->fang.x, 0.0}};
         VEC_V3FromAng(&vadd, &fang);
         VEC_V3MulC(&vadd, (engc->keys[KEY_A])? DEF_FTRN : -DEF_FTRN);
         VEC_V3AddV(&engc->ftrn, &vadd);
@@ -793,7 +817,7 @@ void cMouseInput(ENGC *engc, long xpos, long ypos, long btns) {
         else if (engc->fang.x > M_PI) engc->fang.x -= 2.0 * M_PI;
     }
     if (btns & 10)
-        engc->angp = (VEC_T2IV){xpos, ypos};
+        engc->angp = (VEC_T2IV){{xpos, ypos}};
 }
 
 
@@ -835,21 +859,21 @@ void cRedrawWindow(ENGC *engc) {
     if (!engc->proj)
         return;
 
-    fang = (VEC_T2FV){engc->fang.x + 0.5 * M_PI, engc->fang.y};
+    fang = (VEC_T2FV){{engc->fang.x + 0.5 * M_PI, engc->fang.y}};
     VEC_V3FromAng(&engc->ldir, &fang);
     VEC_M4Translate(tmtx, engc->ftrn.x, engc->ftrn.y, engc->ftrn.z);
     VEC_M4RotOrts(rmtx, engc->fang.y, engc->fang.x, 0.0);
     VEC_M4Multiply(rmtx, tmtx, mmtx);
     VEC_M4Multiply(engc->proj->curr, mmtx, engc->view->curr);
 
-    VEC_T3FV xdir = {mmtx[ 0], mmtx[ 4], mmtx[ 8]},
-             ydir = {mmtx[ 1], mmtx[ 5], mmtx[ 9]},
-             zdir = {mmtx[ 2], mmtx[ 6], mmtx[10]},
-             offs = {mmtx[ 3], mmtx[ 7], mmtx[11]};
+    VEC_T3FV xdir = {{mmtx[ 0], mmtx[ 4], mmtx[ 8]}},
+             ydir = {{mmtx[ 1], mmtx[ 5], mmtx[ 9]}},
+             zdir = {{mmtx[ 2], mmtx[ 6], mmtx[10]}},
+             offs = {{mmtx[ 3], mmtx[ 7], mmtx[11]}};
 
-    engc->dcam = (VEC_T3FV){-VEC_V3DotProd(&offs, &xdir),
-                            -VEC_V3DotProd(&offs, &ydir),
-                            -VEC_V3DotProd(&offs, &zdir)};
+    engc->dcam = (VEC_T3FV){{-VEC_V3DotProd(&offs, &xdir),
+                             -VEC_V3DotProd(&offs, &ydir),
+                             -VEC_V3DotProd(&offs, &zdir)}};
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glPolygonMode(GL_FRONT_AND_BACK, (engc->line)? GL_LINE : GL_FILL);
@@ -896,38 +920,24 @@ void cRedrawWindow(ENGC *engc) {
 
 
 GLenum MakeCube(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim) {
-    #define indc 30
-    #define verc 20
-    #define q (0.5 * pdim)
-    VEC_T3FV vert[verc] = {
-        {-q, q, q}, { q, q, q}, { q,-q, q}, {-q,-q, q},
-        { q, q,-q}, {-q, q,-q}, {-q,-q,-q}, { q,-q,-q},
-        {-q, q,-q}, { q, q,-q}, { q, q, q}, {-q, q, q},
-        {-q, q,-q}, {-q, q, q}, {-q,-q, q}, {-q,-q,-q},
-        { q, q, q}, { q, q,-q}, { q,-q,-q}, { q,-q, q}
+    GLfloat hdim = pdim * 0.5;
+    VEC_T3FV vert[] = {
+        {{-hdim,-hdim,-hdim}}, {{-hdim,-hdim, hdim}},
+        {{-hdim, hdim,-hdim}}, {{-hdim, hdim, hdim}},
+        {{ hdim,-hdim,-hdim}}, {{ hdim,-hdim, hdim}},
+        {{ hdim, hdim,-hdim}}, {{ hdim, hdim, hdim}},
     };
-    GLuint indx[indc] = {
-         0, 3, 1,  1, 3, 2,
-         4, 7, 5,  5, 7, 6,
-         8,11, 9,  9,11,10,
-        12,15,13, 13,15,14,
-        16,19,17, 17,19,18
+    GLuint indx[] = {
+        0, 1, 2,  1, 3, 2,     3, 1, 7,  1, 5, 7, /** 5, 1, 4,  1, 0, 4, **/
+        7, 5, 6,  4, 6, 5,     4, 0, 6,  2, 6, 0,     2, 3, 6,  7, 6, 3,
     };
-
     pind->type = 0;
-    pind->cdat = indc * sizeof(*indx);
-    pind->pdat = calloc(1, pind->cdat);
+    pind->pdat = calloc(1, pind->cdat = countof(indx) * sizeof(*indx));
     memcpy(pind->pdat, indx, pind->cdat);
-
     pver->type = OGL_UNI_T3FV;
-    pver->cdat = verc * sizeof(*vert);
-    pver->pdat = calloc(1, pver->cdat);
+    pver->pdat = calloc(1, pver->cdat = countof(vert) * sizeof(*vert));
     memcpy(pver->pdat, vert, pver->cdat);
-
     return GL_TRIANGLES;
-    #undef indc
-    #undef verc
-    #undef q
 }
 
 
@@ -949,10 +959,9 @@ GLenum MakePlane(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim, GLuint pdet) {
 
     for (y = 0; y <= pdet; y++)
         for (x = 0; x <= pdet; x++) {
-            vert[x + y + y * pdet].x = (GLfloat)x * step - DEF_PDIM * 0.5;
-            vert[x + y + y * pdet].y = (GLfloat)y * step - DEF_PDIM * 0.5;
+            vert[x + y + y * pdet].x = (GLfloat)x * step - pdim * 0.5;
+            vert[x + y + y * pdet].y = (GLfloat)y * step - pdim * 0.5;
         }
-
     for (y = x = 0; x < pind->cdat; y++, x += 6) {
         if (x && !(x % (pdet * 6))) y++;
         indx[x + 4] = 1 + (indx[x + 5] =
@@ -960,7 +969,6 @@ GLenum MakePlane(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim, GLuint pdet) {
                                                  indx[x + 1] =
                                                  1 + (indx[x] = y)));
     }
-
     pind->cdat *= sizeof(*indx);
     pver->cdat *= sizeof(*vert);
     return GL_TRIANGLES;
@@ -1000,7 +1008,6 @@ GLenum MakeSphere(OGL_UNIF *pind, OGL_UNIF *pver, GLuint hdet, GLuint rdet) {
         else
             indx[x + 1] = indx[x + 3] = (indx[x + 0] = y) - rdet;
     }
-
     pind->cdat *= sizeof(*indx);
     pver->cdat *= sizeof(*vert);
     return GL_TRIANGLES;
@@ -1033,7 +1040,7 @@ ENGC *cMakeEngine() {
     retn->wsur = 128.0;
     retn->winv.x = retn->winv.y = 1.0 / (retn->wdet.x = retn->wdet.y = 128.0);
     retn->cinv.x = retn->cinv.y = 1.0 / (retn->cdet.x = retn->cdet.y = 1024.0);
-    retn->dims = (VEC_T4FV){DEF_AIRF, DEF_WTRF, DEF_PHEI, DEF_CHEI};
+    retn->dims = (VEC_T3FV){{DEF_AIRF / DEF_WTRF, DEF_PHEI, DEF_CHEI}};
 
     OGL_UNIF attr[] =
         {{/** indices **/  .draw = GL_STATIC_DRAW},
@@ -1041,8 +1048,8 @@ ENGC *cMakeEngine() {
 
     OGL_UNIF cuni[] =
         {{.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
-         {.name = "dims",  .type = OGL_UNI_T4FV, .pdat = &retn->dims},
          {.name = "cdrp",  .type = OGL_UNI_T4FV, .pdat = &retn->cdrp},
+         {.name = "dims",  .type = OGL_UNI_T3FV, .pdat = &retn->dims},
          {.name = "winv",  .type = OGL_UNI_T2FV, .pdat = &retn->winv},
          {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0}};
 
@@ -1054,7 +1061,7 @@ ENGC *cMakeEngine() {
 
     OGL_UNIF guni[] =
         {{.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
-         {.name = "dims",  .type = OGL_UNI_T4FV, .pdat = &retn->dims},
+         {.name = "dims",  .type = OGL_UNI_T3FV, .pdat = &retn->dims},
          {.name = "cinv",  .type = OGL_UNI_T2FV, .pdat = &retn->cinv},
          {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0}};
 
@@ -1067,8 +1074,8 @@ ENGC *cMakeEngine() {
     OGL_UNIF wuni[] =
         {{.name = "mMVP",  .type = OGL_UNI_TMFV, .pdat = &retn->view},
          {.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
-         {.name = "dims",  .type = OGL_UNI_T4FV, .pdat = &retn->dims},
          {.name = "csph",  .type = OGL_UNI_T4FV, .pdat = &retn->csph},
+         {.name = "dims",  .type = OGL_UNI_T3FV, .pdat = &retn->dims},
          {.name = "ldir",  .type = OGL_UNI_T3FV, .pdat = &retn->ldir},
          {.name = "dcam",  .type = OGL_UNI_T3FV, .pdat = &retn->dcam},
          {.name = "cloud", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0},
@@ -1086,8 +1093,8 @@ ENGC *cMakeEngine() {
     OGL_UNIF puni[] =
         {{.name = "mMVP",  .type = OGL_UNI_TMFV, .pdat = &retn->view},
          {.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
-         {.name = "dims",  .type = OGL_UNI_T4FV, .pdat = &retn->dims},
          {.name = "csph",  .type = OGL_UNI_T4FV, .pdat = &retn->csph},
+         {.name = "dims",  .type = OGL_UNI_T3FV, .pdat = &retn->dims},
          {.name = "ldir",  .type = OGL_UNI_T3FV, .pdat = &retn->ldir},
          {.name = "tiles", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0},
          {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)1},
@@ -1102,8 +1109,8 @@ ENGC *cMakeEngine() {
     OGL_UNIF suni[] =
         {{.name = "mMVP",  .type = OGL_UNI_TMFV, .pdat = &retn->view},
          {.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
-         {.name = "dims",  .type = OGL_UNI_T4FV, .pdat = &retn->dims},
          {.name = "csph",  .type = OGL_UNI_T4FV, .pdat = &retn->csph},
+         {.name = "dims",  .type = OGL_UNI_T3FV, .pdat = &retn->dims},
          {.name = "ldir",  .type = OGL_UNI_T3FV, .pdat = &retn->ldir},
          {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0},
          {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)1}};

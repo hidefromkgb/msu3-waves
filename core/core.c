@@ -853,13 +853,7 @@ void cRedrawWindow(ENGC *engc) {
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glPolygonMode(GL_FRONT_AND_BACK, (engc->line)? GL_LINE : GL_FILL);
-/*
-    if (keys[KEY_LEFT] ^ keys[KEY_RIGHT]) {
-        MakePlaneVBO(watr, NULL, NULL, NULL, 0, NULL, 0,
-                     wsur = ((keys[KEY_LEFT])? ((int)wsur > 1)? -1 : 0 : 1) + (int)wsur);
-        keys[KEY_LEFT] = keys[KEY_RIGHT] = 0;
-    }
-//*/
+
     OGL_DrawVBO(engc->pool, 0);     /** Draw the pool **/
     OGL_DrawVBO(engc->sphr, 0);     /** Draw the sphere **/
     glCullFace(GL_FRONT);

@@ -8,9 +8,6 @@
 
 #define randf(f) (((float)(f) * 2.0 / (float)RAND_MAX) \
                  * (float)(rand() & RAND_MAX) - (float)(f))
-#ifndef countof
-#define countof(a) (sizeof(a) / sizeof(*(a)))
-#endif
 
 #define DEF_FANG  0.01             /** Default angular step             **/
 #define DEF_FTRN  0.05             /** Default translational step       **/
@@ -932,10 +929,10 @@ GLenum MakeCube(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim) {
         7, 5, 6,  4, 6, 5,     4, 0, 6,  2, 6, 0,     2, 3, 6,  7, 6, 3,
     };
     pind->type = 0;
-    pind->pdat = calloc(1, pind->cdat = countof(indx) * sizeof(*indx));
+    pind->pdat = calloc(1, pind->cdat = sizeof(indx));
     memcpy(pind->pdat, indx, pind->cdat);
     pver->type = OGL_UNI_T3FV;
-    pver->pdat = calloc(1, pver->cdat = countof(vert) * sizeof(*vert));
+    pver->pdat = calloc(1, pver->cdat = sizeof(vert));
     memcpy(pver->pdat, vert, pver->cdat);
     return GL_TRIANGLES;
 }
@@ -1054,8 +1051,8 @@ ENGC *cMakeEngine() {
          {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0}};
 
     retn->csur = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
-                             countof(attr), attr, countof(cuni), cuni,
-                             t_cs, *t___);
+                             sizeof(attr) / sizeof(*attr), attr,
+                             sizeof(cuni) / sizeof(*cuni), cuni, t_cs, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1066,7 +1063,8 @@ ENGC *cMakeEngine() {
          {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0}};
 
     retn->gcau = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
-                             countof(attr), attr, countof(guni), guni,
+                             sizeof(attr) / sizeof(*attr), attr,
+                             sizeof(guni) / sizeof(*guni), guni,
                              t_gs, *t___, *tcws);
     free(attr[0].pdat);
     free(attr[1].pdat);
@@ -1085,7 +1083,8 @@ ENGC *cMakeEngine() {
 
     retn->watr = OGL_MakeVBO(4, MakePlane(&attr[0], &attr[1],
                                           DEF_PDIM, retn->wsur),
-                             countof(attr), attr, countof(wuni), wuni,
+                             sizeof(attr) / sizeof(*attr), attr,
+                             sizeof(wuni) / sizeof(*wuni), wuni,
                              t_ws, *t___, *tcws);
     free(attr[0].pdat);
     free(attr[1].pdat);
@@ -1101,8 +1100,8 @@ ENGC *cMakeEngine() {
          {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)2}};
 
     retn->pool = OGL_MakeVBO(3, MakeCube(&attr[0], &attr[1], DEF_PDIM),
-                             countof(attr), attr, countof(puni), puni,
-                             t_ps, *t___);
+                             sizeof(attr) / sizeof(*attr), attr,
+                             sizeof(puni) / sizeof(*puni), puni, t_ps, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1116,8 +1115,8 @@ ENGC *cMakeEngine() {
          {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)1}};
 
     retn->sphr = OGL_MakeVBO(2, MakeSphere(&attr[0], &attr[1], 16, 32),
-                             countof(attr), attr, countof(suni), suni,
-                             t_ss, *t___);
+                             sizeof(attr) / sizeof(*attr), attr,
+                             sizeof(suni) / sizeof(*suni), suni, t_ss, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 

@@ -1,6 +1,5 @@
 #include <gtk/gtk.h>
 #include <gtk/gtkgl.h>
-#include <gdk/gdkkeysyms.h>
 
 #include "../core/core.h"
 
@@ -71,69 +70,44 @@ gboolean OnMousePress(GtkWidget *gwnd, GdkEventButton *ebtn, gpointer user) {
 
 
 gboolean OnKeyPress(GtkWidget *gwnd, GdkEventKey *ekey, gpointer user) {
-    long down = (ekey->type == GDK_KEY_PRESS)? TRUE : FALSE;
-
-    switch (ekey->keyval) {
-        case GDK_KEY_Left:
-            cKbdInput(*(ENGC**)user, KEY_LEFT, down);
-            break;
-
-        case GDK_KEY_Right:
-            cKbdInput(*(ENGC**)user, KEY_RIGHT, down);
-            break;
-
-        case GDK_KEY_Up:
-            cKbdInput(*(ENGC**)user, KEY_UP, down);
-            break;
-
-        case GDK_KEY_Down:
-            cKbdInput(*(ENGC**)user, KEY_DOWN, down);
-            break;
-
-        case GDK_KEY_F1:
-            cKbdInput(*(ENGC**)user, KEY_F1, down);
-            break;
-
-        case GDK_KEY_F2:
-            cKbdInput(*(ENGC**)user, KEY_F2, down);
-            break;
-
-        case GDK_KEY_F3:
-            cKbdInput(*(ENGC**)user, KEY_F3, down);
-            break;
-
-        case GDK_KEY_F4:
-            cKbdInput(*(ENGC**)user, KEY_F4, down);
-            break;
-
-        case GDK_KEY_F5:
-            cKbdInput(*(ENGC**)user, KEY_F5, down);
-            break;
-
-        case GDK_KEY_space:
-            cKbdInput(*(ENGC**)user, KEY_SPACE, down);
-            break;
-
-        case GDK_KEY_w:
-        case GDK_KEY_W:
-            cKbdInput(*(ENGC**)user, KEY_W, down);
-            break;
-
-        case GDK_KEY_s:
-        case GDK_KEY_S:
-            cKbdInput(*(ENGC**)user, KEY_S, down);
-            break;
-
-        case GDK_KEY_a:
-        case GDK_KEY_A:
-            cKbdInput(*(ENGC**)user, KEY_A, down);
-            break;
-
-        case GDK_KEY_d:
-        case GDK_KEY_D:
-            cKbdInput(*(ENGC**)user, KEY_D, down);
-            break;
-    }
+    static uint8_t keys[256] = {
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_ESC       , KEY_1         , KEY_2         ,
+        KEY_3         , KEY_4         , KEY_5         , KEY_6         ,
+        KEY_7         , KEY_8         , KEY_9         , KEY_0         ,
+        KEY_HYPHEN    , KEY_EQUALS    , KEY_BACKSPACE , KEY_TAB       ,
+        KEY_Q         , KEY_W         , KEY_E         , KEY_R         ,
+        KEY_T         , KEY_Y         , KEY_U         , KEY_I         ,
+        KEY_O         , KEY_P         , KEY_LBRACKET  , KEY_RBRACKET  ,
+        KEY_ENTER     , KEY_LCTRL     , KEY_A         , KEY_S         ,
+        KEY_D         , KEY_F         , KEY_G         , KEY_H         ,
+        KEY_J         , KEY_K         , KEY_L         , KEY_COLON     ,
+        KEY_QUOTE     , KEY_TILDE     , KEY_LSHIFT    , KEY_PIPE      ,
+        KEY_Z         , KEY_X         , KEY_C         , KEY_V         ,
+        KEY_B         , KEY_N         , KEY_M         , KEY_LESS      ,
+        KEY_GREATER   , KEY_QUESTION  , KEY_RSHIFT    , KEY_NUM_MUL   ,
+        KEY_LALT      , KEY_SPACE     , KEY_CAPSLOCK  , KEY_F1        ,
+        KEY_F2        , KEY_F3        , KEY_F4        , KEY_F5        ,
+        KEY_F6        , KEY_F7        , KEY_F8        , KEY_F9        ,
+        KEY_F10       , KEY_NUM_LOCK  , KEY_SCRLOCK   , KEY_NUM_7     ,
+        KEY_NUM_8     , KEY_NUM_9     , KEY_NUM_SUB   , KEY_NUM_4     ,
+        KEY_NUM_5     , KEY_NUM_6     , KEY_NUM_ADD   , KEY_NUM_1     ,
+        KEY_NUM_2     , KEY_NUM_3     , KEY_NUM_0     , KEY_NUM_DEL   ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_F11       ,
+        KEY_F12       , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NUM_ENTER , KEY_RCTRL     , KEY_NUM_DIV   , KEY_PRTSCR    ,
+        KEY_RALT      , KEY_NONE      , KEY_HOME      , KEY_UP        ,
+        KEY_PAGEUP    , KEY_LEFT      , KEY_RIGHT     , KEY_END       ,
+        KEY_DOWN      , KEY_PAGEDOWN  , KEY_INSERT    , KEY_DELETE    ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_PAUSE     ,
+        KEY_NONE      , KEY_NONE      , KEY_NONE      , KEY_NONE      ,
+        KEY_NONE      , KEY_LSYSTEM   , /** only KEY_NONE`s here... **/
+    };
+    cKbdInput(*(ENGC**)user, keys[ekey->hardware_keycode & 0xFF],
+             (ekey->type == GDK_KEY_PRESS)? TRUE : FALSE);
     return TRUE;
 }
 

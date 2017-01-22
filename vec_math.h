@@ -22,28 +22,64 @@ typedef struct _VEC_FMST {
     struct _VEC_FMST *prev;
 } VEC_FMST;
 
-typedef struct {
-    float x, y;
+typedef union {
+    struct {
+        float x, y;
+    };
+    struct {
+        float u, v;
+    };
 } VEC_T2FV;
 
-typedef struct {
-    float x, y, z;
+typedef union {
+    struct {
+        float x, y, z;
+    };
+    struct {
+        float r, g, b;
+    };
 } VEC_T3FV;
 
-typedef struct {
-    float x, y, z, w;
+typedef union {
+    struct {
+        float x, y, z, w;
+    };
+    struct {
+        float r, g, b, a;
+    };
+    struct {
+        float xpos, ypos, xdim, ydim;
+    };
 } VEC_T4FV;
 
-typedef struct {
-    int32_t x, y;
+typedef union {
+    struct {
+        int32_t x, y;
+    };
+    struct {
+        int32_t u, v;
+    };
 } VEC_T2IV;
 
-typedef struct {
-    int32_t x, y, z;
+typedef union {
+    struct {
+        int32_t x, y, z;
+    };
+    struct {
+        int32_t r, g, b;
+    };
 } VEC_T3IV;
 
-typedef struct {
-    int32_t x, y, z, w;
+typedef union {
+    struct {
+        int32_t x, y, z, w;
+    };
+    struct {
+        int32_t r, g, b, a;
+    };
+    struct {
+        int32_t xpos, ypos, xdim, ydim;
+    };
 } VEC_T4IV;
 #pragma pack(pop)
 

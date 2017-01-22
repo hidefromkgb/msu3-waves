@@ -1,7 +1,7 @@
 #include <time.h>
 
 #include "ogl_load/ogl_load.h"
-#include "vec_math.h"
+#include "vec_math/vec_math.h"
 #include "core.h"
 
 
@@ -805,7 +805,7 @@ void cKbdInput(ENGC *engc, uint8_t code, long down) {
 
 
 void cResizeWindow(ENGC *engc, long xdim, long ydim) {
-    GLfloat maty = DEF_ZNEA * tanf(0.5 * DEF_FFOV * DEG_CRAD),
+    GLfloat maty = DEF_ZNEA * tanf(0.5 * DEF_FFOV * VEC_DTOR),
             matx = maty * (GLfloat)xdim / (GLfloat)ydim;
 
     VEC_PurgeMatrixStack(&engc->proj);
@@ -1019,8 +1019,8 @@ ENGC *cMakeEngine() {
     retn->ftrn.y = -0.65 * DEF_PDIM;
     retn->ftrn.z = -1.50 * DEF_PDIM;
 
-    retn->fang.x = 30.00 * DEG_CRAD;
-    retn->fang.y = 30.00 * DEG_CRAD;
+    retn->fang.x = 30.00 * VEC_DTOR;
+    retn->fang.y = 30.00 * VEC_DTOR;
 
     glClearColor(0.0, 0.0, 0.0, 1.0);
 

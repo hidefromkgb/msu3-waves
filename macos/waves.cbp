@@ -6,7 +6,7 @@
 		<Option makefile_is_custom="1" />
 		<Option execution_dir="." />
 		<Option compiler="gcc" />
-		<Option virtualFolders="src/;src/mac_load/;src/core/;src/core/ogl_load/;" />
+		<Option virtualFolders="src/;src/mac_load/;src/core/;src/core/ogl_load/;src/core/vec_math/;" />
 		<Build>
 			<Target title="Release">
 				<Option output="../waves.app/Contents/MacOS/main" prefix_auto="1" extension_auto="1" />
@@ -33,8 +33,8 @@
 		<Unit filename="../core/ogl_load/ogl_load.h">
 			<Option virtualFolder="src/core/ogl_load/" />
 		</Unit>
-		<Unit filename="../core/vec_math.h">
-			<Option virtualFolder="src/core/" />
+		<Unit filename="../core/vec_math/vec_math.h">
+			<Option virtualFolder="src/core/vec_math/" />
 		</Unit>
 		<Unit filename="Makefile">
 			<Option virtualFolder="src/" />

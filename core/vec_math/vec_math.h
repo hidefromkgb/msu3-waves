@@ -590,7 +590,7 @@ static inline void VEC_M4MulVect(VEC_TMFV matx, VEC_T4FV *vect) {
 
 
 __attribute__((unused))
-static void VEC_V3UnProject(VEC_T3FV *vect, VEC_TMFV matx, int view[4]) {
+static void VEC_V3UnProject(VEC_T3FV *vect, VEC_TMFV matx, int32_t view[4]) {
     VEC_TMFV minv;
     VEC_T4FV vdot;
 

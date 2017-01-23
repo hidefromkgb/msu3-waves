@@ -2,7 +2,7 @@ CC = gcc
 CX = gcc
 
 CFLAGS = `pkg-config gtk+-2.0 gtkglext-1.0 --cflags` -Wall -fvisibility=hidden
-CXFLAGS = `pkg-config gtk+-2.0 gtkglext-1.0 --libs` -lm -s -Wl,--build-id=none
+CXFLAGS = `pkg-config gtk+-2.0 gtkglext-1.0 --libs` -lm -Wl,--build-id=none
 
 OBJDIR = .obj
 OBJ = $(OBJDIR)/core.o $(OBJDIR)/main.o

@@ -65,10 +65,8 @@ struct ENGC {
 
 
 
-#define SRC_SHDR(n, ...) char *n[] = {__VA_ARGS__, 0}
-
 /** === a set of common functions **/
-SRC_SHDR(t___,            /* v---[ pool coef. height ] */
+char *t___[] = {          /* v---[ pool coef. height ] */
 "#define poolAboveWater (dims.z * 2.0 - 1.0)\n"
 "uniform vec3 ldir;"
 "uniform vec3 dims;"
@@ -176,13 +174,13 @@ SRC_SHDR(t___,            /* v---[ pool coef. height ] */
     "}"
 
     "return wallColor * scale;"
-"}");
+"}"};
 
 
 
 /** Computational surface **/
 
-SRC_SHDR(t_cs,
+char *t_cs[] = {
 /** === main vertex shader **/
 "attribute vec3 vert;"
 
@@ -282,13 +280,13 @@ SRC_SHDR(t_cs,
 
 "void main() {"
     "gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);"
-"}");
+"}"};
 
 
 
 /** Water surface **/
 
-SRC_SHDR(tcws,
+char *tcws[] = {
 /** === above- and below-water shaders` common functions **/
 "uniform vec3 dcam;"
 "uniform samplerCube cloud;"
@@ -332,9 +330,9 @@ SRC_SHDR(tcws,
     "}"
 
     "vec3 income = normalize(position - dcam);" /** <---[ incoming ray ] **/
-);
+};
 
-SRC_SHDR(t_ws,
+char *t_ws[] = {
 /** === main vertex shader **/
 "uniform sampler2D water;"
 "uniform mat4 mMVP;"
@@ -442,11 +440,11 @@ SRC_SHDR(t_ws,
                            "vec3(1.0, 2.0, 1.0));"
     "gl_FragColor.r /= 1.0 + exp((newPos.y - poolAboveWater - refrac.y * t.y)"
                                "* -200.0 / (1.0 + 10.0 * (t.y - t.x)));"
-"}");
+"}"};
 
 /** Pool walls **/
 
-SRC_SHDR(t_ps,
+char *t_ps[] = {
 /** === main vertex shader **/
 "%s"
 "uniform mat4 mMVP;"
@@ -470,13 +468,13 @@ SRC_SHDR(t_ps,
     "if (position.y < info.r) {" /* v---[ underwater color ] */
         "gl_FragColor.rgb *= clrs[1].rgb * 1.2;"
     "}"
-"}");
+"}"};
 
 
 
 /** Sphere **/
 
-SRC_SHDR(t_ss,
+char *t_ss[] = {
 /** === main vertex shader **/
 "%s"
 "uniform mat4 mMVP;"
@@ -498,13 +496,13 @@ SRC_SHDR(t_ss,
     "vec4 info = texture2D(water, position.xz * 0.5 + 0.5);"
     "if (position.y < info.r)"   /* v---[ underwater color ] */
         "gl_FragColor.rgb *= clrs[1].rgb * 1.2;"
-"}");
+"}"};
 
 
 
 /** Gauss-blur surface **/
 
-SRC_SHDR(t_gs,
+char *t_gs[] = {
 /** === main vertex shader **/
 "attribute vec3 vert;"
 
@@ -538,23 +536,23 @@ SRC_SHDR(t_gs,
     "+ 0.002218 * (texture2D(caust, vec2(coord.y - 6.0 * cinv.x, coord.x)).r"
                "+  texture2D(caust, vec2(coord.y + 6.0 * cinv.x, coord.x)).r);"
     "gl_FragColor = info;"
-"}");
-
-#undef SRC_SHDR
+"}"};
 
 
 
 FRBO *MakeRBO(OGL_FVBO *vobj, GLuint tfrn, GLuint tbak) {
-    OGL_FTEX *ftex, *btex;
+    GLuint ftxd = 0, ftyd = 0, btxd = 0, btyd = 0;
     FRBO *retn;
 
-    if (!vobj || (tfrn >= vobj->ctex) || (tbak >= vobj->ctex))
+    if (!vobj)
         return 0;
 
-    ftex = OGL_BindTex(vobj, tfrn, OGL_TEX_NSET);
-    btex = OGL_BindTex(vobj, tbak, OGL_TEX_NSET);
-    if ((ftex->xdim != btex->xdim) ||
-        (ftex->ydim != btex->ydim)) return 0;
+    OGL_EnumTex(*OGL_BindTex(vobj, tfrn, OGL_TEX_NSET),
+                 0, 0, 0, &ftxd, &ftyd, 0);
+    OGL_EnumTex(*OGL_BindTex(vobj, tbak, OGL_TEX_NSET),
+                 0, 0, 0, &btxd, &btyd, 0);
+    if (!ftxd || !btxd || !ftyd || !btyd || (ftxd != btxd) || (ftyd != btyd))
+        return 0;
 
     retn = (FRBO*)malloc(sizeof(FRBO));
     retn->vobj = vobj;
@@ -564,8 +562,7 @@ FRBO *MakeRBO(OGL_FVBO *vobj, GLuint tfrn, GLuint tbak) {
     glGenFramebuffers(1, &retn->frmb);
     glGenRenderbuffers(1, &retn->rndb);
     glBindRenderbuffer(GL_RENDERBUFFER, retn->rndb);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
-                          ftex->xdim, ftex->ydim);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, ftxd, ftyd);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
     return retn;
 }
@@ -573,7 +570,8 @@ FRBO *MakeRBO(OGL_FVBO *vobj, GLuint tfrn, GLuint tbak) {
 
 
 void DrawRBO(FRBO *robj, GLuint shad) {
-    OGL_FTEX ttex, *ftex, *btex;
+    OGL_FTEX *ttex, **ftex, **btex;
+    GLuint xdim = 0, ydim = 0;
     GLint view[4];
 
     glGetIntegerv(GL_VIEWPORT, view);
@@ -583,7 +581,8 @@ void DrawRBO(FRBO *robj, GLuint shad) {
     ttex = *(btex = OGL_BindTex(robj->vobj, robj->tbak, OGL_TEX_FRMB));
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                               GL_RENDERBUFFER, robj->rndb);
-    glViewport(0, 0, btex->xdim, btex->ydim);
+    OGL_EnumTex(*btex, 0, 0, 0, &xdim, &ydim, 0);
+    glViewport(0, 0, xdim, ydim);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     OGL_DrawVBO(robj->vobj, shad);
@@ -609,9 +608,10 @@ void FreeRBO(FRBO **robj) {
 
 
 
-GLvoid MakeTileTex(OGL_FTEX *retn, GLuint size, GLuint tile, GLuint tbdr) {
+OGL_FTEX *MakeTileTex(GLuint size, GLuint tile, GLuint tbdr) {
     GLint x, y, u, v;
     RGBA tclr, *bptr;
+    OGL_FTEX *retn;
 
     size = pow(2.0, size);
     tile = pow(2.0, tile);
@@ -638,22 +638,24 @@ GLvoid MakeTileTex(OGL_FTEX *retn, GLuint size, GLuint tile, GLuint tbdr) {
                 for (u = (x - 1) * tile + tbdr; u < x * tile - tbdr; u++)
                     bptr[size * v + u].RGBA = tclr.RGBA;
         }
-    OGL_MakeTex(retn, size, size, 0, GL_TEXTURE_2D,
-                GL_REPEAT, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
-                GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, bptr);
+    retn = OGL_MakeTex(size, size, 0, GL_TEXTURE_2D,
+                       GL_REPEAT, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                       GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, bptr);
     free(bptr);
+    return retn;
 }
 
 
 
-GLvoid MakeCloudTex(OGL_FTEX *retn, GLuint size,
-                    GLfloat dmpf, GLfloat cden, GLfloat cshr, RGBA dclr) {
+OGL_FTEX *MakeCloudTex(GLuint size, GLfloat dmpf,
+                       GLfloat cden, GLfloat cshr, RGBA dclr) {
     size = pow(2.0, size);
 
     GLint x, y, xbgn, xend, ybgn, yend, oddc, step, sinc = size + 1;
     GLfloat hdef, *farr = (GLfloat*)calloc(sinc * sinc, sizeof(GLfloat));
     hdef = dmpf = pow(2.0, -fabs(dmpf));
     RGBA *data = (RGBA*)malloc(size * size * sizeof(RGBA));
+    OGL_FTEX *retn;
 
     for (step = size >> 1; step; step >>= 1, hdef *= dmpf) {
         for (y = step; y < size; y += step << 1)
@@ -701,17 +703,19 @@ GLvoid MakeCloudTex(OGL_FTEX *retn, GLuint size,
             data[x + size * y].B = dclr.B + (dmpf * (255.0 - (GLfloat)dclr.B));
             data[x + size * y].A = 0xFF;
         }
-
-    OGL_MakeTex(retn, size, size, 0, GL_TEXTURE_CUBE_MAP, GL_REPEAT,
-                GL_LINEAR, GL_LINEAR, GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA,
-                data);
+    retn = OGL_MakeTex(size, size, 0, GL_TEXTURE_CUBE_MAP,
+                       GL_REPEAT, GL_LINEAR, GL_LINEAR,
+                       GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, data);
     free(data);
     free(farr);
+    return retn;
 }
 
 
 
 void RegenerateColors(ENGC *retn) {
+    OGL_FTEX **tsky;
+
     /** DISGUSTING.
         [TODO] do something with it. **/
     while (!0) {
@@ -747,12 +751,11 @@ void RegenerateColors(ENGC *retn) {
     retn->clrs[10] = CLR_BTOF * DEF_WCLR * retn->dclr.z;
     #undef CLR_BTOF
 
-    if (retn->watr->ptex[0].trgt)
-        glDeleteTextures(1, &retn->watr->ptex[0].indx);
-    MakeCloudTex(&retn->watr->ptex[0], 8, 1.0, 0.35, 0.01,
-                (RGBA){{DEF_SCLR * retn->dclr.x,
-                        DEF_SCLR * retn->dclr.y,
-                        DEF_SCLR * retn->dclr.z, 255}});
+    OGL_FreeTex(tsky = OGL_BindTex(retn->watr, 0, OGL_TEX_NSET));
+    *tsky = MakeCloudTex(8, 1.0, 0.35, 0.01,
+                        (RGBA){{DEF_SCLR * retn->dclr.x,
+                                DEF_SCLR * retn->dclr.y,
+                                DEF_SCLR * retn->dclr.z, 255}});
 }
 
 
@@ -1013,6 +1016,10 @@ GLenum MakeSphere(OGL_UNIF *pind, OGL_UNIF *pver, GLuint hdet, GLuint rdet) {
 
 
 ENGC *cMakeEngine() {
+    #define _VBO(ctex, elem, patr, puni, pshd, ...) \
+            OGL_MakeVBO(ctex, elem, sizeof(patr) / sizeof(*patr), patr,  \
+                        sizeof(puni) / sizeof(*puni), puni,              \
+                        sizeof(pshd) / sizeof(*pshd), pshd, ##__VA_ARGS__)
     ENGC *retn;
 
     srand(time(0));
@@ -1050,9 +1057,8 @@ ENGC *cMakeEngine() {
          {.name = "winv",  .type = OGL_UNI_T2FV, .pdat = &retn->winv},
          {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0}};
 
-    retn->csur = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
-                             sizeof(attr) / sizeof(*attr), attr,
-                             sizeof(cuni) / sizeof(*cuni), cuni, t_cs, *t___);
+    retn->csur = _VBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
+                      attr, cuni, t_cs, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1062,10 +1068,8 @@ ENGC *cMakeEngine() {
          {.name = "cinv",  .type = OGL_UNI_T2FV, .pdat = &retn->cinv},
          {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0}};
 
-    retn->gcau = OGL_MakeVBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
-                             sizeof(attr) / sizeof(*attr), attr,
-                             sizeof(guni) / sizeof(*guni), guni,
-                             t_gs, *t___, *tcws);
+    retn->gcau = _VBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1),
+                      attr, guni, t_gs, *t___, *tcws);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1081,11 +1085,8 @@ ENGC *cMakeEngine() {
          {.name = "tiles", .type = OGL_UNI_T1II, .pdat = (GLvoid*)2},
          {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)3}};
 
-    retn->watr = OGL_MakeVBO(4, MakePlane(&attr[0], &attr[1],
-                                          DEF_PDIM, retn->wsur),
-                             sizeof(attr) / sizeof(*attr), attr,
-                             sizeof(wuni) / sizeof(*wuni), wuni,
-                             t_ws, *t___, *tcws);
+    retn->watr = _VBO(4, MakePlane(&attr[0], &attr[1], DEF_PDIM, retn->wsur),
+                      attr, wuni, t_ws, *t___, *tcws);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1099,9 +1100,8 @@ ENGC *cMakeEngine() {
          {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)1},
          {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)2}};
 
-    retn->pool = OGL_MakeVBO(3, MakeCube(&attr[0], &attr[1], DEF_PDIM),
-                             sizeof(attr) / sizeof(*attr), attr,
-                             sizeof(puni) / sizeof(*puni), puni, t_ps, *t___);
+    retn->pool = _VBO(3, MakeCube(&attr[0], &attr[1], DEF_PDIM),
+                      attr, puni, t_ps, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
@@ -1114,45 +1114,41 @@ ENGC *cMakeEngine() {
          {.name = "caust", .type = OGL_UNI_T1II, .pdat = (GLvoid*)0},
          {.name = "water", .type = OGL_UNI_T1II, .pdat = (GLvoid*)1}};
 
-    retn->sphr = OGL_MakeVBO(2, MakeSphere(&attr[0], &attr[1], 16, 32),
-                             sizeof(attr) / sizeof(*attr), attr,
-                             sizeof(suni) / sizeof(*suni), suni, t_ss, *t___);
+    retn->sphr = _VBO(2, MakeSphere(&attr[0], &attr[1], 16, 32),
+                      attr, suni, t_ss, *t___);
     free(attr[0].pdat);
     free(attr[1].pdat);
 
-    OGL_MakeTex(&retn->csur->ptex[0], retn->wdet.x, retn->wdet.y, 0,
-                GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
-                GL_FLOAT, GL_RGBA32F, GL_RGBA, 0);
-    OGL_MakeTex(&retn->csur->ptex[1], retn->wdet.x, retn->wdet.y, 0,
-                GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
-                GL_FLOAT, GL_RGBA32F, GL_RGBA, 0);
+    *OGL_BindTex(retn->csur, 0, OGL_TEX_NSET) =
+        OGL_MakeTex(retn->wdet.x, retn->wdet.y, 0, GL_TEXTURE_2D,
+                    GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
+                    GL_FLOAT, GL_RGBA32F, GL_RGBA, 0);
+    *OGL_BindTex(retn->csur, 1, OGL_TEX_NSET) =
+        OGL_MakeTex(retn->wdet.x, retn->wdet.y, 0, GL_TEXTURE_2D,
+                    GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
+                    GL_FLOAT, GL_RGBA32F, GL_RGBA, 0);
 
-    OGL_MakeTex(&retn->gcau->ptex[0], retn->cdet.x, retn->cdet.y, 0,
-                GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
-                GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, 0);
-    OGL_MakeTex(&retn->gcau->ptex[1], retn->cdet.x, retn->cdet.y, 0,
-                GL_TEXTURE_2D, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
-                GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, 0);
+    *OGL_BindTex(retn->gcau, 0, OGL_TEX_NSET) =
+        OGL_MakeTex(retn->cdet.x, retn->cdet.y, 0, GL_TEXTURE_2D,
+                    GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
+                    GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, 0);
+    *OGL_BindTex(retn->gcau, 1, OGL_TEX_NSET) =
+        OGL_MakeTex(retn->cdet.x, retn->cdet.y, 0, GL_TEXTURE_2D,
+                    GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
+                    GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, 0);
 
     /** water **/
-    retn->watr->ptex[3].orig =
-    retn->sphr->ptex[1].orig =
-    retn->pool->ptex[2].orig = retn->csur;
-    retn->watr->ptex[3].indx =
-    retn->sphr->ptex[1].indx =
-    retn->pool->ptex[2].indx = 0;
+    OGL_LinkTex(retn->watr, 3, retn->csur, 0);
+    OGL_LinkTex(retn->sphr, 1, retn->csur, 0);
+    OGL_LinkTex(retn->pool, 2, retn->csur, 0);
 
     /** caust **/
-    retn->watr->ptex[1].orig =
-    retn->sphr->ptex[0].orig =
-    retn->pool->ptex[1].orig = retn->gcau;
-    retn->watr->ptex[1].indx =
-    retn->sphr->ptex[0].indx =
-    retn->pool->ptex[1].indx = 0;
+    OGL_LinkTex(retn->watr, 1, retn->gcau, 0);
+    OGL_LinkTex(retn->sphr, 0, retn->gcau, 0);
+    OGL_LinkTex(retn->pool, 1, retn->gcau, 0);
 
     /** tiles **/
-    retn->watr->ptex[2].orig = retn->pool;
-    retn->watr->ptex[2].indx = 0;
+    OGL_LinkTex(retn->watr, 2, retn->pool, 0);
 
     retn->rsur = MakeRBO(retn->csur, 0, 1);
     retn->rcau = MakeRBO(retn->gcau, 0, 1);
@@ -1163,9 +1159,10 @@ ENGC *cMakeEngine() {
     retn->csph.y =     -(0.50 * DEF_PDIM - retn->csph.w);
     retn->csph.z = randf(0.50 * DEF_PDIM - retn->csph.w);
 
-    MakeTileTex(&retn->pool->ptex[0], 9, 5, 1);
+    *OGL_BindTex(retn->pool, 0, OGL_TEX_NSET) = MakeTileTex(9, 5, 1);
     RegenerateColors(retn);
     return retn;
+    #undef _VBO
 }
 
 

@@ -585,7 +585,7 @@ void DrawRBO(FRBO *robj, GLuint shad) {
     glViewport(0, 0, xdim, ydim);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    OGL_DrawVBO(robj->vobj, shad);
+    OGL_DrawVBO(robj->vobj, shad, 0);
 
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -878,12 +878,12 @@ void cRedrawWindow(ENGC *engc) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glPolygonMode(GL_FRONT_AND_BACK, (engc->line)? GL_LINE : GL_FILL);
 
-    OGL_DrawVBO(engc->pool, 0);     /** Draw the pool **/
-    OGL_DrawVBO(engc->sphr, 0);     /** Draw the sphere **/
+    OGL_DrawVBO(engc->pool, 0, 0);  /** Draw the pool **/
+    OGL_DrawVBO(engc->sphr, 0, 0);  /** Draw the sphere **/
     glCullFace(GL_FRONT);
-    OGL_DrawVBO(engc->watr, 0);     /** Draw the water (inner surface) **/
+    OGL_DrawVBO(engc->watr, 0, 0);  /** Draw the water (inner surface) **/
     glCullFace(GL_BACK);
-    OGL_DrawVBO(engc->watr, 1);     /** Draw the water (outer surface) **/
+    OGL_DrawVBO(engc->watr, 1, 0);  /** Draw the water (outer surface) **/
 
     if (engc->keys[KEY_RMB]) {
         glGetIntegerv(GL_VIEWPORT, vprt);

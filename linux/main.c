@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <gtk/gtk.h>
 #include <gtk/gtkgl.h>
 
@@ -146,10 +147,11 @@ gboolean OnRedraw(GtkWidget *gwnd, GdkEventExpose *eexp, gpointer user) {
 
 
 
-int main(int argc, char *argv[]) {
-    GdkGLDrawable *pGLD;
-    guint tmru, tmrd;
+void _start() {
     DATA data = {};
+    GdkGLDrawable *pGLD;
+    /** the stack MUST be aligned to a 256-bit (32-byte) boundary: **/
+    __attribute__((aligned(32))) volatile guint tmru, tmrd;
 
     gtk_init(0, 0);
     gtk_gl_init(0, 0);
@@ -209,4 +211,5 @@ int main(int argc, char *argv[]) {
     g_source_remove(tmrd);
     g_source_remove(tmru);
     gtk_widget_destroy(data.gwnd);
+    exit(0);
 }

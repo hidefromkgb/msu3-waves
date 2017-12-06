@@ -1,5 +1,4 @@
 #include "mac_load/mac_load.h"
-#include "../core/ogl_load/ogl_load.h"
 #include "../core/core.h"
 
 
@@ -46,7 +45,8 @@ void MAC_Handler(OnDraw, CGRect rect) {
 }
 
 void MAC_Handler(OnKeys, NSEvent *ekey) {
-    static uint8_t keys[256] = { /** see the list of kVK_* for info **/
+void MAC_Handler(OnKeys, NSEvent *ekey) {
+    static const uint8_t keys[256] = { /** see the list of kVK_* for info **/
         KEY_A         , KEY_S         , KEY_D         , KEY_F         ,
         KEY_H         , KEY_G         , KEY_Z         , KEY_X         ,
         KEY_C         , KEY_V         , KEY_NONE      , KEY_B         ,
@@ -123,7 +123,7 @@ void OnUpdate(CFRunLoopTimerRef tmrp, void *user) {
 
 
 int main(int argc, char *argv[]) {
-    GLint attr[] = {NSOpenGLPFADoubleBuffer, NSOpenGLPFADepthSize, 32, 0};
+    int attr[] = {NSOpenGLPFADoubleBuffer, NSOpenGLPFADepthSize, 32, 0};
     CFRunLoopTimerRef tupd;
     CFRunLoopObserverRef idrw;
     NSOpenGLPixelFormat *pfmt;

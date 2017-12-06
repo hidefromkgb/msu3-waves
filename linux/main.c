@@ -30,10 +30,9 @@ gboolean DrawFunc(gpointer user) {
 
 
 gboolean UpdateFunc(gpointer user) {
-    GdkGLDrawable *pGLD = gtk_widget_gl_begin(data->gwnd);
-    DATA *data = (DATA*)user;
+    GdkGLDrawable *pGLD = gtk_widget_gl_begin(((DATA*)user)->gwnd);
 
-    cUpdateState(data->engc);
+    cUpdateState(((DATA*)user)->engc);
     gdk_gl_drawable_gl_end(pGLD);
     return TRUE;
 }

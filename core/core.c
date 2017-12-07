@@ -433,7 +433,7 @@ void cRedrawWindow(ENGC *engc) {
 
 
 
-GLenum MakeCube(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim) {
+void MakeCube(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim) {
     GLfloat hdim = pdim * 0.5;
     VEC_T3FV vert[] = {
         {{-hdim,-hdim,-hdim}}, {{-hdim,-hdim, hdim}},
@@ -451,12 +451,11 @@ GLenum MakeCube(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim) {
     pver->type = OGL_UNI_T3FV;
     pver->pdat = calloc(1, pver->cdat = sizeof(vert));
     memcpy(pver->pdat, vert, pver->cdat);
-    return GL_TRIANGLES;
 }
 
 
 
-GLenum MakePlane(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim, GLuint pdet) {
+void MakePlane(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim, GLuint pdet) {
     GLfloat step = pdim / (GLfloat)pdet;
     GLuint x, y;
 
@@ -485,12 +484,11 @@ GLenum MakePlane(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim, GLuint pdet) {
     }
     pind->cdat *= sizeof(*indx);
     pver->cdat *= sizeof(*vert);
-    return GL_TRIANGLES;
 }
 
 
 
-GLenum MakeSphere(OGL_UNIF *pind, OGL_UNIF *pver, GLuint hdet, GLuint rdet) {
+void MakeSphere(OGL_UNIF *pind, OGL_UNIF *pver, GLuint hdet, GLuint rdet) {
     GLfloat hang, rang, hstp = 1.0 * M_PI / (GLfloat)hdet,
                         rstp = 2.0 * M_PI / (GLfloat)rdet;
     GLuint x, y;
@@ -524,7 +522,6 @@ GLenum MakeSphere(OGL_UNIF *pind, OGL_UNIF *pver, GLuint hdet, GLuint rdet) {
     }
     pind->cdat *= sizeof(*indx);
     pver->cdat *= sizeof(*vert);
-    return GL_TRIANGLES;
 }
 
 
@@ -640,43 +637,33 @@ ENGC *cMakeEngine() {
             "return wallColor * scale;"
         "}";
 
-    /** CAUTION! Notice the two FREE()`s at the end of _VBO()! **/
-    #define _VBO(ctex, elem, patr, puni, pshd, ...)                         \
-            OGL_MakeVBO(ctex, elem, sizeof(patr) / sizeof(*patr), patr,     \
-                        sizeof(puni) / sizeof(*puni), puni,                 \
-                        sizeof(pshd) / sizeof(*pshd), pshd, ##__VA_ARGS__); \
-                        free(patr[0].pdat); free(patr[1].pdat)
+    #define _VBO(retn, ctex, elem, patr, puni, pshd, ...) do { retn =   \
+        OGL_MakeVBO(ctex, elem, sizeof(patr) / sizeof(*patr),           \
+                    patr, sizeof(puni) / sizeof(*puni), puni,           \
+                    sizeof(pshd) / sizeof(*pshd), pshd, ##__VA_ARGS__); \
+        free(patr[0].pdat); free(patr[1].pdat); } while (0)
+
+    OGL_UNIF attr[] = {{/** indices **/ .draw = GL_STATIC_DRAW},
+                       {.name = "vert", .draw = GL_STATIC_DRAW}};
     ENGC *retn;
 
     srand(time(0));
 
     retn = calloc(1, sizeof(*retn));
-
-    retn->ftrn.x =  0.80 * DEF_PDIM;
-    retn->ftrn.y = -0.65 * DEF_PDIM;
-    retn->ftrn.z = -1.50 * DEF_PDIM;
-
-    retn->fang.x = 30.00 * VEC_DTOR;
-    retn->fang.y = 30.00 * VEC_DTOR;
-
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-
-    glCullFace(GL_BACK);
-    glEnable(GL_CULL_FACE);
-
-    glDepthFunc(GL_LESS);
-    glEnable(GL_DEPTH_TEST);
-
     retn->wsur = 128.0;
     retn->winv.x = retn->winv.y = 1.0 / (retn->wdet.x = retn->wdet.y = 128.0);
     retn->cinv.x = retn->cinv.y = 1.0 / (retn->cdet.x = retn->cdet.y = 1024.0);
     retn->dims = (VEC_T3FV){{DEF_AIRF / DEF_WTRF, DEF_PHEI, DEF_CHEI}};
+    retn->ftrn = (VEC_T3FV){{.8 * DEF_PDIM, -.65 * DEF_PDIM, -1.5 * DEF_PDIM}};
+    retn->fang = (VEC_T2FV){{30.0 * VEC_DTOR, 30.0 * VEC_DTOR}};
 
-    OGL_UNIF attr[] = {{/** indices **/  .draw = GL_STATIC_DRAW},
-                       {.name = "vert",  .draw = GL_STATIC_DRAW}};
+    retn->csph.w =       0.25 * DEF_PHEI;
+    retn->csph.x = randf(0.50 * DEF_PDIM - retn->csph.w);
+    retn->csph.y =     -(0.50 * DEF_PDIM - retn->csph.w);
+    retn->csph.z = randf(0.50 * DEF_PDIM - retn->csph.w);
 
-    retn->csur =
-    _VBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1), attr, ((OGL_UNIF[])
+    MakePlane(&attr[0], &attr[1], DEF_PDIM, 1);
+    _VBO(retn->csur, 2, GL_TRIANGLES, attr, ((OGL_UNIF[])
         {{.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
          {.name = "cdrp",  .type = OGL_UNI_T4FV, .pdat = &retn->cdrp},
          {.name = "dims",  .type = OGL_UNI_T3FV, .pdat = &retn->dims},
@@ -777,8 +764,8 @@ ENGC *cMakeEngine() {
              "gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);"
          "}"}));
 
-    retn->gcau =
-    _VBO(2, MakePlane(&attr[0], &attr[1], DEF_PDIM, 1), attr, ((OGL_UNIF[])
+    MakePlane(&attr[0], &attr[1], DEF_PDIM, 1);
+    _VBO(retn->gcau, 2, GL_TRIANGLES, attr, ((OGL_UNIF[])
         {{.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
          {.name = "dims",  .type = OGL_UNI_T3FV, .pdat = &retn->dims},
          {.name = "cinv",  .type = OGL_UNI_T2FV, .pdat = &retn->cinv},
@@ -817,8 +804,8 @@ ENGC *cMakeEngine() {
              "gl_FragColor = info;"
          "}"}));
 
-    retn->watr =
-    _VBO(4, MakePlane(&attr[0], &attr[1], DEF_PDIM, retn->wsur), attr, ((OGL_UNIF[])
+    MakePlane(&attr[0], &attr[1], DEF_PDIM, retn->wsur);
+    _VBO(retn->watr, 4, GL_TRIANGLES, attr, ((OGL_UNIF[])
         {{.name = "mMVP",  .type = OGL_UNI_TMFV, .pdat = &retn->view},
          {.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
          {.name = "csph",  .type = OGL_UNI_T4FV, .pdat = &retn->csph},
@@ -973,8 +960,8 @@ ENGC *cMakeEngine() {
              /*    v---[ incoming ray ] */
              "vec3 income = normalize(position - dcam);");
 
-    retn->pool =
-    _VBO(3, MakeCube(&attr[0], &attr[1], DEF_PDIM), attr, ((OGL_UNIF[])
+    MakeCube(&attr[0], &attr[1], DEF_PDIM);
+    _VBO(retn->pool, 3, GL_TRIANGLES, attr, ((OGL_UNIF[])
         {{.name = "mMVP",  .type = OGL_UNI_TMFV, .pdat = &retn->view},
          {.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
          {.name = "csph",  .type = OGL_UNI_T4FV, .pdat = &retn->csph},
@@ -1007,8 +994,8 @@ ENGC *cMakeEngine() {
              "}"
          "}"}), func);
 
-    retn->sphr =
-    _VBO(2, MakeSphere(&attr[0], &attr[1], 16, 32), attr, ((OGL_UNIF[])
+    MakeSphere(&attr[0], &attr[1], 16, 32);
+    _VBO(retn->sphr, 2, GL_TRIANGLES, attr, ((OGL_UNIF[])
         {{.name = "mMVP",  .type = OGL_UNI_TMFV, .pdat = &retn->view},
          {.name = "clrs",  .type = OGL_UNI_TMFI, .pdat = &retn->clrs},
          {.name = "csph",  .type = OGL_UNI_T4FV, .pdat = &retn->csph},
@@ -1038,6 +1025,8 @@ ENGC *cMakeEngine() {
                  "gl_FragColor.rgb *= clrs[1].rgb * 1.2;"
          "}"}), func);
 
+    *OGL_BindTex(retn->pool, 0, OGL_TEX_NSET) = MakeTileTex(9, 5, 1);
+
     *OGL_BindTex(retn->csur, 0, OGL_TEX_NSET) =
         OGL_MakeTex(retn->wdet.x, retn->wdet.y, 0, GL_TEXTURE_2D,
                     GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
@@ -1056,30 +1045,30 @@ ENGC *cMakeEngine() {
                     GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
                     GL_UNSIGNED_BYTE, GL_RGBA, GL_RGBA, 0);
 
-    /** water **/
-    OGL_LinkTex(retn->sphr, 1, retn->csur, 0);
+    OGL_LinkTex(retn->sphr, 1, retn->csur, 0); /** water **/
     OGL_LinkTex(retn->pool, 2, retn->csur, 0);
     OGL_LinkTex(retn->watr, 3, retn->csur, 0);
 
-    /** caust **/
-    OGL_LinkTex(retn->sphr, 0, retn->gcau, 0);
+    OGL_LinkTex(retn->sphr, 0, retn->gcau, 0); /** caust **/
     OGL_LinkTex(retn->pool, 1, retn->gcau, 0);
     OGL_LinkTex(retn->watr, 1, retn->gcau, 0);
 
-    /** tiles **/
-    OGL_LinkTex(retn->watr, 2, retn->pool, 0);
+    OGL_LinkTex(retn->watr, 2, retn->pool, 0); /** tiles **/
 
     retn->rsur = MakeRBO(retn->csur, 0, 1);
     retn->rcau = MakeRBO(retn->gcau, 0, 1);
     retn->rwtr = MakeRBO(retn->watr, 1, 1);
 
-    retn->csph.w =       0.25 * DEF_PHEI;
-    retn->csph.x = randf(0.50 * DEF_PDIM - retn->csph.w);
-    retn->csph.y =     -(0.50 * DEF_PDIM - retn->csph.w);
-    retn->csph.z = randf(0.50 * DEF_PDIM - retn->csph.w);
-
-    *OGL_BindTex(retn->pool, 0, OGL_TEX_NSET) = MakeTileTex(9, 5, 1);
     RegenerateColors(retn);
+
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+
+    glCullFace(GL_BACK);
+    glEnable(GL_CULL_FACE);
+
+    glDepthFunc(GL_LESS);
+    glEnable(GL_DEPTH_TEST);
+
     return retn;
     #undef _VBO
 }

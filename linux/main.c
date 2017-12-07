@@ -14,9 +14,8 @@ typedef struct {
 static inline GdkGLDrawable *gtk_widget_gl_begin(GtkWidget *gwnd) {
     GdkGLDrawable *pGLD = gtk_widget_get_gl_drawable(gwnd);
 
-    if (!gdk_gl_drawable_gl_begin(pGLD, gtk_widget_get_gl_context(gwnd)))
-        return 0;
-    return pGLD;
+    return (gdk_gl_drawable_gl_begin(pGLD, gtk_widget_get_gl_context(gwnd)))?
+            pGLD : 0;
 }
 
 

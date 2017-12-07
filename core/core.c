@@ -230,6 +230,99 @@ OGL_FTEX *MakeCloudTex(GLuint size, GLfloat dmpf,
 
 
 
+void MakeCube(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim) {
+    GLfloat hdim = pdim * 0.5;
+    VEC_T3FV vert[] = {
+        {{-hdim,-hdim,-hdim}}, {{-hdim,-hdim, hdim}},
+        {{-hdim, hdim,-hdim}}, {{-hdim, hdim, hdim}},
+        {{ hdim,-hdim,-hdim}}, {{ hdim,-hdim, hdim}},
+        {{ hdim, hdim,-hdim}}, {{ hdim, hdim, hdim}},
+    };
+    GLuint indx[] = {
+        0, 1, 2,  1, 3, 2,     3, 1, 7,  1, 5, 7, /** 5, 1, 4,  1, 0, 4, **/
+        7, 5, 6,  4, 6, 5,     4, 0, 6,  2, 6, 0,     2, 3, 6,  7, 6, 3,
+    };
+    pind->type = 0;
+    pind->pdat = calloc(1, pind->cdat = sizeof(indx));
+    memcpy(pind->pdat, indx, pind->cdat);
+    pver->type = OGL_UNI_T3FV;
+    pver->pdat = calloc(1, pver->cdat = sizeof(vert));
+    memcpy(pver->pdat, vert, pver->cdat);
+}
+
+
+
+void MakePlane(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim, GLuint pdet) {
+    GLfloat step = pdim / (GLfloat)pdet;
+    GLuint x, y;
+
+    GLuint *indx;
+    VEC_T3FV *vert;
+
+    pind->type = 0;
+    pind->cdat = pdet * pdet * 6;
+    pind->pdat = indx = calloc(pind->cdat, sizeof(*indx));
+
+    pver->type = OGL_UNI_T3FV;
+    pver->cdat = (pdet + 1) * (pdet + 1);
+    pver->pdat = vert = calloc(pver->cdat, sizeof(*vert));
+
+    for (y = 0; y <= pdet; y++)
+        for (x = 0; x <= pdet; x++) {
+            vert[x + y + y * pdet].x = (GLfloat)x * step - pdim * 0.5;
+            vert[x + y + y * pdet].y = (GLfloat)y * step - pdim * 0.5;
+        }
+    for (y = x = 0; x < pind->cdat; y++, x += 6) {
+        if (x && !(x % (pdet * 6))) y++;
+        indx[x + 4] = 1 + (indx[x + 5] =
+                           indx[x + 2] = pdet + (indx[x + 3] =
+                                                 indx[x + 1] =
+                                                 1 + (indx[x] = y)));
+    }
+    pind->cdat *= sizeof(*indx);
+    pver->cdat *= sizeof(*vert);
+}
+
+
+
+void MakeSphere(OGL_UNIF *pind, OGL_UNIF *pver, GLuint hdet, GLuint rdet) {
+    GLfloat hang, rang, hstp = 1.0 * M_PI / (GLfloat)hdet,
+                        rstp = 2.0 * M_PI / (GLfloat)rdet;
+    GLuint x, y;
+
+    GLuint *indx;
+    VEC_T3FV *vert;
+
+    pind->type = 0;
+    pind->cdat = hdet * rdet * 6;
+    pind->pdat = indx = calloc(pind->cdat, sizeof(*indx));
+
+    pver->type = OGL_UNI_T3FV;
+    pver->cdat = (hdet + 1) * rdet;
+    pver->pdat = vert = calloc(pver->cdat, sizeof(*vert));
+
+    for (y = 0; y <= hdet; y++) {
+        hang = hstp * (GLfloat)y - 0.5 * M_PI;
+        for (x = 0; x < rdet; x++) {
+            rang = rstp * (GLfloat)x;
+            vert[x + y * rdet].x = cos(rang) * cos(hang);
+            vert[x + y * rdet].y = sin(hang);
+            vert[x + y * rdet].z = sin(rang) * cos(hang);
+        }
+    }
+    for (y = (x = 0) + 1; x < pind->cdat; y++, x += 6) {
+        indx[x + 2] = indx[x + 5] = (indx[x + 4] = y - 1) + rdet;
+        if (y % rdet)
+            indx[x + 0] = (indx[x + 1] = indx[x + 3] = y) + rdet;
+        else
+            indx[x + 1] = indx[x + 3] = (indx[x + 0] = y) - rdet;
+    }
+    pind->cdat *= sizeof(*indx);
+    pver->cdat *= sizeof(*vert);
+}
+
+
+
 void RegenerateColors(ENGC *retn) {
     OGL_FTEX **tsky;
 
@@ -433,95 +526,22 @@ void cRedrawWindow(ENGC *engc) {
 
 
 
-void MakeCube(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim) {
-    GLfloat hdim = pdim * 0.5;
-    VEC_T3FV vert[] = {
-        {{-hdim,-hdim,-hdim}}, {{-hdim,-hdim, hdim}},
-        {{-hdim, hdim,-hdim}}, {{-hdim, hdim, hdim}},
-        {{ hdim,-hdim,-hdim}}, {{ hdim,-hdim, hdim}},
-        {{ hdim, hdim,-hdim}}, {{ hdim, hdim, hdim}},
-    };
-    GLuint indx[] = {
-        0, 1, 2,  1, 3, 2,     3, 1, 7,  1, 5, 7, /** 5, 1, 4,  1, 0, 4, **/
-        7, 5, 6,  4, 6, 5,     4, 0, 6,  2, 6, 0,     2, 3, 6,  7, 6, 3,
-    };
-    pind->type = 0;
-    pind->pdat = calloc(1, pind->cdat = sizeof(indx));
-    memcpy(pind->pdat, indx, pind->cdat);
-    pver->type = OGL_UNI_T3FV;
-    pver->pdat = calloc(1, pver->cdat = sizeof(vert));
-    memcpy(pver->pdat, vert, pver->cdat);
-}
+void cFreeEngine(ENGC **engc) {
+    FreeRBO(&(*engc)->rsur);
+    FreeRBO(&(*engc)->rwtr);
+    FreeRBO(&(*engc)->rcau);
 
+    OGL_FreeVBO(&(*engc)->csur);
+    OGL_FreeVBO(&(*engc)->watr);
+    OGL_FreeVBO(&(*engc)->gcau);
+    OGL_FreeVBO(&(*engc)->pool);
+    OGL_FreeVBO(&(*engc)->sphr);
 
+    VEC_PurgeMatrixStack(&(*engc)->proj);
+    VEC_PurgeMatrixStack(&(*engc)->view);
 
-void MakePlane(OGL_UNIF *pind, OGL_UNIF *pver, GLfloat pdim, GLuint pdet) {
-    GLfloat step = pdim / (GLfloat)pdet;
-    GLuint x, y;
-
-    GLuint *indx;
-    VEC_T3FV *vert;
-
-    pind->type = 0;
-    pind->cdat = pdet * pdet * 6;
-    pind->pdat = indx = calloc(pind->cdat, sizeof(*indx));
-
-    pver->type = OGL_UNI_T3FV;
-    pver->cdat = (pdet + 1) * (pdet + 1);
-    pver->pdat = vert = calloc(pver->cdat, sizeof(*vert));
-
-    for (y = 0; y <= pdet; y++)
-        for (x = 0; x <= pdet; x++) {
-            vert[x + y + y * pdet].x = (GLfloat)x * step - pdim * 0.5;
-            vert[x + y + y * pdet].y = (GLfloat)y * step - pdim * 0.5;
-        }
-    for (y = x = 0; x < pind->cdat; y++, x += 6) {
-        if (x && !(x % (pdet * 6))) y++;
-        indx[x + 4] = 1 + (indx[x + 5] =
-                           indx[x + 2] = pdet + (indx[x + 3] =
-                                                 indx[x + 1] =
-                                                 1 + (indx[x] = y)));
-    }
-    pind->cdat *= sizeof(*indx);
-    pver->cdat *= sizeof(*vert);
-}
-
-
-
-void MakeSphere(OGL_UNIF *pind, OGL_UNIF *pver, GLuint hdet, GLuint rdet) {
-    GLfloat hang, rang, hstp = 1.0 * M_PI / (GLfloat)hdet,
-                        rstp = 2.0 * M_PI / (GLfloat)rdet;
-    GLuint x, y;
-
-    GLuint *indx;
-    VEC_T3FV *vert;
-
-    pind->type = 0;
-    pind->cdat = hdet * rdet * 6;
-    pind->pdat = indx = calloc(pind->cdat, sizeof(*indx));
-
-    pver->type = OGL_UNI_T3FV;
-    pver->cdat = (hdet + 1) * rdet;
-    pver->pdat = vert = calloc(pver->cdat, sizeof(*vert));
-
-    for (y = 0; y <= hdet; y++) {
-        hang = hstp * (GLfloat)y - 0.5 * M_PI;
-        for (x = 0; x < rdet; x++) {
-            rang = rstp * (GLfloat)x;
-            vert[x + y * rdet].x = cos(rang) * cos(hang);
-            vert[x + y * rdet].y = sin(hang);
-            vert[x + y * rdet].z = sin(rang) * cos(hang);
-        }
-    }
-    for (y = (x = 0) + 1; x < pind->cdat; y++, x += 6) {
-        indx[x + 2] = indx[x + 5] = (indx[x + 4] = y - 1) + rdet;
-        if (y % rdet)
-            indx[x + 0] = (indx[x + 1] = indx[x + 3] = y) + rdet;
-        else
-            indx[x + 1] = indx[x + 3] = (indx[x + 0] = y) - rdet;
-    }
-    pind->cdat *= sizeof(*indx);
-    pver->cdat *= sizeof(*vert);
+    free(*engc);
+    *engc = 0;
 }
 
 
@@ -638,8 +658,8 @@ ENGC *cMakeEngine() {
         "}";
 
     #define _VBO(retn, ctex, elem, patr, puni, pshd, ...) do { retn =   \
-        OGL_MakeVBO(ctex, elem, sizeof(patr) / sizeof(*patr),           \
-                    patr, sizeof(puni) / sizeof(*puni), puni,           \
+        OGL_MakeVBO(ctex, elem, sizeof(patr) / sizeof(*patr), patr,     \
+                    sizeof(puni) / sizeof(*puni), puni,                 \
                     sizeof(pshd) / sizeof(*pshd), pshd, ##__VA_ARGS__); \
         free(patr[0].pdat); free(patr[1].pdat); } while (0)
 
@@ -1061,34 +1081,11 @@ ENGC *cMakeEngine() {
 
     RegenerateColors(retn);
 
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-
     glCullFace(GL_BACK);
     glEnable(GL_CULL_FACE);
-
     glDepthFunc(GL_LESS);
     glEnable(GL_DEPTH_TEST);
-
+    glClearColor(0.0, 0.0, 0.0, 1.0);
     return retn;
     #undef _VBO
-}
-
-
-
-void cFreeEngine(ENGC **engc) {
-    FreeRBO(&(*engc)->rsur);
-    FreeRBO(&(*engc)->rwtr);
-    FreeRBO(&(*engc)->rcau);
-
-    OGL_FreeVBO(&(*engc)->csur);
-    OGL_FreeVBO(&(*engc)->watr);
-    OGL_FreeVBO(&(*engc)->gcau);
-    OGL_FreeVBO(&(*engc)->pool);
-    OGL_FreeVBO(&(*engc)->sphr);
-
-    VEC_PurgeMatrixStack(&(*engc)->proj);
-    VEC_PurgeMatrixStack(&(*engc)->view);
-
-    free(*engc);
-    *engc = 0;
 }

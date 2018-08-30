@@ -45,7 +45,6 @@ void MAC_Handler(OnDraw, CGRect rect) {
 }
 
 void MAC_Handler(OnKeys, NSEvent *ekey) {
-void MAC_Handler(OnKeys, NSEvent *ekey) {
     static const uint8_t keys[256] = { /** see the list of kVK_* for info **/
         KEY_A         , KEY_S         , KEY_D         , KEY_F         ,
         KEY_H         , KEY_G         , KEY_Z         , KEY_X         ,
@@ -114,8 +113,11 @@ void OnUpdate(CFRunLoopTimerRef tmrp, void *user) {
                && (mptr.x >= 0) && (mptr.y >= 0));
         if ((~attr & 1) && (here || ((data->pbtn >> 8) & ~attr & 14)))
             data->pbtn = (data->pbtn & 0xFF) | ((attr & 14) << 8);
-        if ((data->pbtn & (14 << 8)))
+        if ((data->pbtn & (14 << 8))) {
+            if (MAC_10_07_PLUS)
+                mptr = convertPointToBacking_(data->view, mptr);
             cMouseInput(data->engc, mptr.x, mptr.y, attr);
+        }
     }
     cUpdateState(data->engc);
 }
@@ -150,7 +152,9 @@ int main(int argc, char *argv[]) {
                                        windowDidResize_(), OnSize,
                                        windowShouldClose_(), OnClose,
                                        keyDown_(), OnKeys, keyUp_(), OnKeys,
-                                       acceptsFirstResponder(), OnTrue));
+                                       acceptsFirstResponder(), OnTrue,
+    /** works even on OSX 10.6 (as **/ wantsBestResolutionOpenGLSurface(),
+    /** this is just a hash entry) **/ OnTrue));
 
     pfmt = initWithAttributes_(alloc(NSOpenGLPixelFormat()), attr);
     data.view = (NSView*)initWithFrame_pixelFormat_(alloc(vogl), dims, pfmt);
